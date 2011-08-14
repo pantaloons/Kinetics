@@ -13,6 +13,8 @@
 
 #include "camera.h"
 #include "physics.h"
+#include "calibration.h"
+#include "control.h"
 
 pthread_t runThread;
 pthread_t cameraThread;
@@ -29,6 +31,10 @@ GLuint rgbTexture;
 extern uint8_t *depthFront;
 extern uint8_t *rgbFront;
 
+int* calibration;
+float near = 1.0f;
+float far = 100.0f;
+
 void renderLoop(int argc, char** argv);
 void *runLoop(void *arg);
 
@@ -42,6 +48,9 @@ int main(int argc, char** argv) {
 		printf("pthread_create() failed\n");
 		return 1;
 	}
+	
+	calibration = calibrate(near, far);
+	
 	result = pthread_create(&runThread, NULL, runLoop, NULL);
 	if(result) {
 		printf("pthread_create() failed\n");
@@ -53,8 +62,23 @@ int main(int argc, char** argv) {
 	return 0;
 }
 
+unsigned long getTime() {
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	return (time.tv_sec * 1000 + time.tv_usec/1000.0) + 0.5;
+}
+
 void *runLoop(void *arg) {
-	
+	unsigned long lastTime = getTime();
+	while(1) {
+		unsigned long curTime = getTime();
+		unsigned long delta = curTime - lastTime;
+		
+		int* walls = threshhold(calibration, near, far);
+		simulate(delta, walls);
+		
+		lastTime = curTime;
+	}
 }
 
 void initScene() {

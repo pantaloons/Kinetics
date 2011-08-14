@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <pthread.h>
-#include "libfreenect.h"
 #include "camera.h"
 
 freenect_context *context;

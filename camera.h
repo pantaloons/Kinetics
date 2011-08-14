@@ -1,6 +1,9 @@
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 #include <libfreenect_sync.h>
+#include <stdio.h>
+#include <pthread.h>
+#include "libfreenect.h"
 
 int initCamera();
 

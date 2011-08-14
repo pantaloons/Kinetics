@@ -1,5 +1,9 @@
 #include "physics.h"
 
-int*** simulate(float delta, int*** walls) {
+void initialize() {
+
+}
+
+int* simulate(float delta, int* walls) {
 	return NULL;
 }
