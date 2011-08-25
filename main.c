@@ -57,6 +57,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	
+	printf("Hello!\n");
 	renderLoop(argc, argv);
 
 	return 0;
@@ -85,11 +86,11 @@ void initScene() {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClearDepth(1.0);
 	glDepthFunc(GL_LESS);
-    glDepthMask(GL_FALSE);
+	glDepthMask(GL_FALSE);
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_BLEND);
-    glDisable(GL_ALPHA_TEST);
-    glEnable(GL_TEXTURE_2D);
+	glDisable(GL_ALPHA_TEST);
+	glEnable(GL_TEXTURE_2D);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glShadeModel(GL_FLAT);
 	
@@ -110,10 +111,11 @@ void resize(int width, int height) {
 	glLoadIdentity();
 	glOrtho(0, 640, 480, 0, -1.0f, 1.0f);
 	glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+	glLoadIdentity();
 }
 
 void keyboard(unsigned char key, int x, int y) {
+	
 }
 
 void render() {
@@ -127,14 +129,14 @@ void render() {
 		depthUpdate = 0;
 	}
 	if(rgbUpdate) {
-		swapRgbBuffers();
+		swapRGBBuffers();
 		rgbUpdate = 0;
 	}
 	
 	pthread_mutex_unlock(&gl_backbuf_mutex);
 	
-	glBindTexture(GL_TEXTURE_2D, depthTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, depthFront);
+	glBindTexture(GL_TEXTURE_2D, rgbTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, rgbFront);
 
 	glBegin(GL_TRIANGLE_FAN);
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);

@@ -3,26 +3,38 @@
 freenect_context *context;
 freenect_device *device;
 
-/**
- * back: owned by libfreenect (implicit for depth)
- * mid: owned by callbacks, "latest frame ready"
- * front: owned by GL, "currently being drawn"
- */
-uint8_t *depthMid, *depthFront;
-uint8_t *rgbBack, *rgbMid, *rgbFront;
+#define HISTORY_SIZE 10
 
-uint16_t t_gamma[2048];
+float t_gamma[2048];
 
 extern pthread_mutex_t gl_backbuf_mutex;
 extern pthread_cond_t gl_frame_cond;
 extern int depthUpdate;
 extern int rgbUpdate;
 
+/* The buffer is managed (written to) by libfreenect
+ * rgbStage is a staging area for new frames, only the latest frame is staged
+ * the buffer and staging area get swapped on a frame update, while the front and staging
+ * area get swappe on a render (front is the rendering buffer) */
+uint8_t *rgbBuffer, *rgbStage, *rgbFront;
+/*
+ * As above, there is no back buffer because libfreenect uses an internal depth buffer
+ */
+float *depthStage, *depthFront;
+/* These are the history frames, they get cycled every time the staging frame gets updated
+ * frames[0] is the most recent frame. */
+uint8_t **rgbFrames;
+float **depthFrames;
+
 int initCamera() {
-	for(int i = 0; i < 2048; i++) {
-		float v = i / 2048.0f;
-		v = powf(v, 3) * 6;
-		t_gamma[i] = v * 6 * 256;
+	/* Black magic... this converts kinect depth values to real distance */
+	for (int i = 0; i < 2048; i++) 
+	{ 
+			const float k1 = 1.1863; 
+			const float k2 = 2842.5; 
+			const float k3 = 0.1236; 
+			const float depth = k3 * tanf(i/k2 + k1); 
+			t_gamma[i] = depth; 
 	}
 	
 	if(freenect_init(&context, NULL) < 0) {
@@ -42,29 +54,37 @@ int initCamera() {
 		return 1;
 	}
 	
-	depthMid = (uint8_t*)malloc(640 * 480 * 3);
-	depthFront = (uint8_t*)malloc(640 * 480 * 3);
+	rgbBuffer = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
+	rgbStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
+	rgbFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	
-	rgbBack = (uint8_t*)malloc(640 * 480 * 3);
-	rgbMid = (uint8_t*)malloc(640 * 480 * 3);
-	rgbFront = (uint8_t*)malloc(640 * 480 * 3);
+	
+	depthStage = (float*)malloc(640 * 480 * sizeof(float));
+	depthFront = (float*)malloc(640 * 480 * sizeof(float));
+	
+	rgbFrames = (uint8_t**)malloc(HISTORY_SIZE * sizeof(uint8_t*));
+	depthFrames = (float**)malloc(HISTORY_SIZE * sizeof(float*));
+	for(int i = 0; i < HISTORY_SIZE; i++) {
+		rgbFrames[i] = (uint8_t*)malloc(HISTORY_SIZE * 640 * 480 * 3 * sizeof(uint8_t));
+		depthFrames[i] = (float*)malloc(HISTORY_SIZE * 640 * 480 * sizeof(float));
+	}
 
 	return 0;
 }
 
-void swapRgbBuffers() {
+void swapRGBBuffers() {
 	uint8_t *tmp;
 	tmp = rgbFront;
-	rgbFront = rgbMid;
-	rgbMid = tmp;
+	rgbFront = rgbStage;
+	rgbStage = tmp;
 	rgbUpdate = 0;
 }
 
 void swapDepthBuffers() {
-	uint8_t *tmp;
+	float *tmp;
 	tmp = depthFront;
-	depthFront = depthMid;
-	depthMid = tmp;
+	depthFront = depthStage;
+	depthStage = tmp;
 	depthUpdate = 0;
 }
 
@@ -75,14 +95,14 @@ void *cameraLoop(void *arg) {
 	freenect_set_video_callback(device, rgbFunc);
 	freenect_set_video_mode(device, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
 	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
-	freenect_set_video_buffer(device, rgbBack);
+	freenect_set_video_buffer(device, rgbBuffer);
 
 	freenect_start_depth(device);
 	freenect_start_video(device);
 	
 	int accelCount = 0;
 	while(freenect_process_events(context) >= 0) {
-		if (accelCount++ >= 1) //2000)
+		if (accelCount++ >= 2000)
 		{
 			accelCount = 0;
 			freenect_raw_tilt_state* state;
@@ -106,11 +126,13 @@ void *cameraLoop(void *arg) {
 void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	pthread_mutex_lock(&gl_backbuf_mutex);
 
-	// swap buffers
-	assert(rgbBack == rgb);
-	rgbBack = rgbMid;
-	freenect_set_video_buffer(dev, rgbBack);
-	rgbMid = (uint8_t*)rgb;
+	/* Swap buffers */
+	assert(rgbBuffer == rgb);
+	rgbBuffer = rgbStage;
+	freenect_set_video_buffer(dev, rgbBuffer);
+	rgbStage = rgb;
+	for(int i = HISTORY_SIZE - 1; i > 0; i--) rgbFrames[i] = rgbFrames[i - 1];
+	memcpy(rgbFrames[0], rgb, 640 * 480 * 3 * sizeof(uint8_t));
 
 	rgbUpdate++;
 	pthread_cond_signal(&gl_frame_cond);
@@ -121,8 +143,15 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 	uint16_t *depth = (uint16_t*)v_depth;
 
 	pthread_mutex_lock(&gl_backbuf_mutex);
+	for(int i = HISTORY_SIZE - 1; i > 0; i--) depthFrames[i] = depthFrames[i - 1];
 	for(int i = 0; i < 640 * 480; i++) {
-		int pval = t_gamma[depth[i]];
+		depthStage[i] = t_gamma[depth[i]];
+		depthFrames[0][i] = t_gamma[depth[i]];
+	}
+	depthUpdate++;
+	pthread_cond_signal(&gl_frame_cond);
+	pthread_mutex_unlock(&gl_backbuf_mutex);
+		/*
 		int lb = pval & 0xff;
 		switch(pval >> 8) {
 			case 0:
@@ -161,11 +190,7 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 				depthMid[3*i+2] = 0;
 				break;
 		}
-	}
-	
-	depthUpdate++;
-	pthread_cond_signal(&gl_frame_cond);
-	pthread_mutex_unlock(&gl_backbuf_mutex);
+		*/
 }
 
 int *readCamera() {

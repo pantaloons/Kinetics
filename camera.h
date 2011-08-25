@@ -3,11 +3,12 @@
 #include <libfreenect_sync.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <math.h>
 #include "libfreenect.h"
 
 int initCamera();
 
-void swapRgbBuffers();
+void swapRGBBuffers();
 void swapDepthBuffers();
 
 void *cameraLoop(void *arg);
