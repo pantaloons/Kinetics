@@ -7,6 +7,7 @@
 uint8_t *paintBuffer, *renderBuffer;
 int physicsUpdate = 0;
 
+extern pthread_mutex_t rgbBufferMutex;
 pthread_mutex_t paintBufferMutex;
 pthread_cond_t paintSignal = PTHREAD_COND_INITIALIZER;
 
@@ -25,8 +26,8 @@ void swapPhysicsBuffers() {
 
 void simulate(float delta, int *walls, uint8_t *rgb) {
 	//perform some physics crap
-	pthread_mutex_lock(&paintBufferMutex);
 	
+	pthread_mutex_lock(&paintBufferMutex);
 	memcpy(paintBuffer, rgb, 640 * 480 * 3 * sizeof(uint8_t));
 	//Render walls, etc on top of paintBuffer
 	
