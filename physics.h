@@ -1,9 +1,13 @@
 #include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+#include <stdint.h>
+#include <string.h>
 
 void initialize();
 
+void swapPhysicsBuffers();
 /**
- * Return a pixel color buffer array, representing the state after simulating
- * delta milliseconds of physics.
+ * Simulating delta milliseconds of physics, drawing the result into the paint buffer.
  */
-int* simulate(float delta, int* walls);
+void simulate(float delta, int *walls, uint8_t *rgb);

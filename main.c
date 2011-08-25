@@ -19,17 +19,13 @@
 pthread_t runThread;
 pthread_t cameraThread;
 
-pthread_mutex_t gl_backbuf_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t gl_frame_cond = PTHREAD_COND_INITIALIZER;
-
-int depthUpdate = 0;
-int rgbUpdate = 0;
-
-GLuint depthTexture;
 GLuint rgbTexture;
 
-extern uint8_t *depthFront;
-extern uint8_t *rgbFront;
+extern uint8_t *renderBuffer, *rgbFront;
+extern int rgbUpdate, physicsUpdate;
+
+extern pthread_mutex_t paintBufferMutex;
+extern pthread_cond_t paintSignal;
 
 int* calibration;
 float near = 1.0f;
@@ -50,6 +46,8 @@ int main(int argc, char** argv) {
 	}
 	
 	calibration = calibrate(near, far);
+	
+	initialize();
 	
 	result = pthread_create(&runThread, NULL, runLoop, NULL);
 	if(result) {
@@ -75,8 +73,10 @@ void *runLoop(void *arg) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
 		
+		if(rgbUpdate) swapRGBBuffers();
+		
 		int* walls = threshhold(calibration, near, far);
-		simulate(delta, walls);
+		simulate(delta, walls, rgbFront);
 		
 		lastTime = curTime;
 	}
@@ -93,11 +93,6 @@ void initScene() {
 	glEnable(GL_TEXTURE_2D);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glShadeModel(GL_FLAT);
-	
-	glGenTextures(1, &depthTexture);
-	glBindTexture(GL_TEXTURE_2D, depthTexture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	glGenTextures(1, &rgbTexture);
 	glBindTexture(GL_TEXTURE_2D, rgbTexture);
@@ -119,24 +114,17 @@ void keyboard(unsigned char key, int x, int y) {
 }
 
 void render() {
-	pthread_mutex_lock(&gl_backbuf_mutex);
+	pthread_mutex_lock(&paintBufferMutex);
 	
-	while (!depthUpdate || !rgbUpdate) {
-		pthread_cond_wait(&gl_frame_cond, &gl_backbuf_mutex);
+	while(!physicsUpdate) {
+		pthread_cond_wait(&paintSignal, &paintBufferMutex);
 	}
-	if (depthUpdate) {
-		swapDepthBuffers();
-		depthUpdate = 0;
-	}
-	if(rgbUpdate) {
-		swapRGBBuffers();
-		rgbUpdate = 0;
-	}
+	swapPhysicsBuffers();
 	
-	pthread_mutex_unlock(&gl_backbuf_mutex);
+	pthread_mutex_unlock(&paintBufferMutex);
 	
 	glBindTexture(GL_TEXTURE_2D, rgbTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, rgbFront);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
 
 	glBegin(GL_TRIANGLE_FAN);
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -144,17 +132,6 @@ void render() {
 	glTexCoord2f(1, 0); glVertex3f(640,0,0);
 	glTexCoord2f(1, 1); glVertex3f(640,480,0);
 	glTexCoord2f(0, 1); glVertex3f(0,480,0);
-	glEnd();
-
-	glBindTexture(GL_TEXTURE_2D, rgbTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, rgbFront);
-
-	glBegin(GL_TRIANGLE_FAN);
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	glTexCoord2f(0, 0); glVertex3f(640,0,0);
-	glTexCoord2f(1, 0); glVertex3f(1280,0,0);
-	glTexCoord2f(1, 1); glVertex3f(1280,480,0);
-	glTexCoord2f(0, 1); glVertex3f(640,480,0);
 	glEnd();
 
 	glutSwapBuffers();
