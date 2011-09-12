@@ -11,6 +11,7 @@ int initCamera();
 
 void swapRGBBuffers();
 void swapDepthBuffers();
+void swapDepthImageBuffers();
 
 void *cameraLoop(void *arg);
 void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp);

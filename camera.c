@@ -6,6 +6,7 @@ freenect_device *device;
 #define HISTORY_SIZE 10
 
 float t_gamma[2048];
+uint16_t t_gamma_i[2048];
 
 pthread_mutex_t rgbBufferMutex;
 pthread_cond_t frameUpdateSignal = PTHREAD_COND_INITIALIZER;
@@ -21,22 +22,24 @@ uint8_t *rgbBuffer, *rgbStage, *rgbFront;
  * As above, there is no back buffer because libfreenect uses an internal depth buffer
  */
 uint16_t *depthStage, *depthFront;
-/* These are the history frames, they get cycled every time the staging frame gets updated
- * frames[0] is the most recent frame. */
-uint8_t **rgbFrames;
-uint16_t **depthFrames;
 
-uint8_t *tempBuffer;
+/*
+ * Some debugging buffers for depth imaging
+ */
+uint8_t *depthImageStage, *depthImageFront;
 
 int initCamera() {
 	/* Black magic... this converts kinect depth values to real distance */
-	for (int i = 0; i < 2048; i++) 
-	{ 
+	for (int i = 0; i < 2048; i++) { 
 			const float k1 = 1.1863; 
 			const float k2 = 2842.5; 
 			const float k3 = 0.1236; 
 			const float depth = k3 * tanf(i/k2 + k1); 
 			t_gamma[i] = depth; 
+
+			float v = i/2048.0;
+			v = powf(v, 3) * 6;
+			t_gamma_i[i] = v * 6 * 256;
 	}
 	
 	if(freenect_init(&context, NULL) < 0) {
@@ -60,17 +63,11 @@ int initCamera() {
 	rgbStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	rgbFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	
-	tempBuffer = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
-	
 	depthStage = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
 	depthFront = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
 	
-	rgbFrames = (uint8_t**)malloc(HISTORY_SIZE * sizeof(uint8_t*));
-	depthFrames = (uint16_t**)malloc(HISTORY_SIZE * sizeof(uint16_t*));
-	for(int i = 0; i < HISTORY_SIZE; i++) {
-		rgbFrames[i] = (uint8_t*)malloc(HISTORY_SIZE * 640 * 480 * 3 * sizeof(uint8_t));
-		depthFrames[i] = (uint16_t*)malloc(HISTORY_SIZE * 640 * 480 * sizeof(uint16_t));
-	}
+	depthImageStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
+	depthImageFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 
 	return 0;
 }
@@ -92,6 +89,15 @@ void swapDepthBuffers() {
 	depthFront = depthStage;
 	depthStage = tmp;
 	depthUpdate = 0;
+	pthread_mutex_unlock(&rgbBufferMutex);
+}
+
+void swapDepthImageBuffers() {
+	pthread_mutex_lock(&rgbBufferMutex);
+	uint8_t *tmp;
+	tmp = depthImageFront;
+	depthImageFront = depthImageStage;
+	depthImageStage = tmp;
 	pthread_mutex_unlock(&rgbBufferMutex);
 }
 
@@ -138,8 +144,6 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbBuffer = rgbStage;
 	freenect_set_video_buffer(dev, rgbBuffer);
 	rgbStage = rgb;
-	for(int i = HISTORY_SIZE - 1; i > 0; i--) rgbFrames[i] = rgbFrames[i - 1];
-	memcpy(rgbFrames[0], rgb, 640 * 480 * 3 * sizeof(uint8_t));
 
 	rgbUpdate++;
 	pthread_cond_signal(&frameUpdateSignal);
@@ -150,54 +154,52 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 	uint16_t *depth = (uint16_t*)v_depth;
 
 	pthread_mutex_lock(&rgbBufferMutex);
-	for(int i = HISTORY_SIZE - 1; i > 0; i--) depthFrames[i] = depthFrames[i - 1];
 	for(int i = 0; i < 640 * 480; i++) {
 		depthStage[i] = depth[i];
-		depthFrames[0][i] = depth[i];
+		
+		int pval = t_gamma_i[depth[i]];
+		int lb = pval & 0xff;
+		switch (pval >> 8) {
+			case 0:
+				depthImageStage[3*i+0] = 255;
+				depthImageStage[3*i+1] = 255 - lb;
+				depthImageStage[3*i+2] = 255 - lb;
+				break;
+			case 1:
+				depthImageStage[3*i+0] = 255;
+				depthImageStage[3*i+1] = lb;
+				depthImageStage[3*i+2] = 0;
+				break;
+			case 2:
+				depthImageStage[3*i+0] = 255 - lb;
+				depthImageStage[3*i+1] = 255;
+				depthImageStage[3*i+2] = 0;
+				break;
+			case 3:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 255;
+				depthImageStage[3*i+2] = lb;
+				break;
+			case 4:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 255 - lb;
+				depthImageStage[3*i+2] = 255;
+				break;
+			case 5:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 0;
+				depthImageStage[3*i+2] = 255 - lb;
+				break;
+			default:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 0;
+				depthImageStage[3*i+2] = 0;
+				break;
+		}
 	}
 	depthUpdate++;
 	pthread_cond_signal(&frameUpdateSignal);
 	pthread_mutex_unlock(&rgbBufferMutex);
-		/*
-		int lb = pval & 0xff;
-		switch(pval >> 8) {
-			case 0:
-				depthMid[3*i+0] = 255;
-				depthMid[3*i+1] = 255 - lb;
-				depthMid[3*i+2] = 255 - lb;
-				break;
-			case 1:
-				depthMid[3*i+0] = 255;
-				depthMid[3*i+1] = lb;
-				depthMid[3*i+2] = 0;
-				break;
-			case 2:
-				depthMid[3*i+0] = 255 - lb;
-				depthMid[3*i+1] = 255;
-				depthMid[3*i+2] = 0;
-				break;
-			case 3:
-				depthMid[3*i+0] = 0;
-				depthMid[3*i+1] = 255;
-				depthMid[3*i+2] = lb;
-				break;
-			case 4:
-				depthMid[3*i+0] = 0;
-				depthMid[3*i+1] = 255 - lb;
-				depthMid[3*i+2] = 255;
-				break;
-			case 5:
-				depthMid[3*i+0] = 0;
-				depthMid[3*i+1] = 0;
-				depthMid[3*i+2] = 255 - lb;
-				break;
-			default:
-				depthMid[3*i+0] = 0;
-				depthMid[3*i+1] = 0;
-				depthMid[3*i+2] = 0;
-				break;
-		}
-		*/
 }
 
 IplImage *cvGetDepth()

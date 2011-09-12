@@ -10,4 +10,4 @@ void swapPhysicsBuffers();
 /**
  * Simulating delta milliseconds of physics, drawing the result into the paint buffer.
  */
-void simulate(float delta, int *walls, uint8_t *rgb);
+unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb);

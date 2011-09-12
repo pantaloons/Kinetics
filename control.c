@@ -1,8 +1,7 @@
 #include "control.h"
 
 IplImage* differenceImage;
-int* thresh;
-extern int* tempBuffer;
+uint8_t* thresh;
 
 void controlInit() {
 	differenceImage = cvCreateImage(cvSize(640,480), 8, 3);
@@ -14,7 +13,7 @@ void controlInit() {
  * the calibration image between near and far
  * TODO: only consider values between near and far using depth map
  */
-int* threshhold(IplImage* calibration, float near, float far) {
+uint8_t* threshhold(IplImage* calibration, float near, float far) {
 	IplImage *rgbImage = cvGetRGB();
 	//diff current frame with previous frame
 	cvAbsDiff(calibration, rgbImage, differenceImage);	
@@ -33,6 +32,9 @@ int* threshhold(IplImage* calibration, float near, float far) {
 	// binary open on difference image to close white patches in sillhouette
 	//cvDilate(differenceImage, differenceImage, NULL, 7);
 	//cvErode(differenceImage, differenceImage, NULL, 7);
+	IplConvKernel* k = cvCreateStructuringElementEx(5,5,2,2,CV_SHAPE_ELLIPSE,NULL);
+    cvErode(differenceImage, differenceImage, k, 1);
+    cvReleaseStructuringElement(&k);
 	
 	memcpy(thresh, differenceImage->imageData, 640 * 480 * 3 * sizeof(uint8_t));
 	return thresh;
