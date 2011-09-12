@@ -21,8 +21,8 @@ pthread_t cameraThread;
 
 GLuint paintTexture;
 
-extern uint8_t *renderBuffer, *rgbFront, *depthImageFront;
-extern int rgbUpdate, depthUpdate, physicsUpdate;
+extern uint8_t *renderBuffer, *rgbFront, *depthImageFront, *debugBuffer;
+extern volatile int rgbUpdate, depthUpdate, physicsUpdate;
 
 extern pthread_mutex_t paintBufferMutex;
 extern pthread_cond_t paintSignal;
@@ -80,6 +80,7 @@ unsigned long getTime() {
 
 void *runLoop(void *arg) {
 	unsigned long lastTime = getTime();
+	while(!rgbUpdate); /* We wait for the camera to initialize itself */
 	while(1) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
@@ -176,12 +177,10 @@ void renderFour() {
 	glTexCoord2f(1, 1); glVertex3f(1280,480,0);
 	glTexCoord2f(0, 1); glVertex3f(640,480,0);
 	glEnd();
-	
-	if(wallBuffer != NULL) {
-		pthread_mutex_lock(&wallBufferMutex);
-		glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, wallBuffer);
-		pthread_mutex_unlock(&wallBufferMutex);
-	}
+
+	pthread_mutex_lock(&wallBufferMutex);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, wallBuffer);
+	pthread_mutex_unlock(&wallBufferMutex);
 	glBegin(GL_TRIANGLE_FAN);
 	glTexCoord2f(0, 0); glVertex3f(0,480,0);
 	glTexCoord2f(1, 0); glVertex3f(640,480,0);
@@ -189,6 +188,10 @@ void renderFour() {
 	glTexCoord2f(0, 1); glVertex3f(0,960,0);
 	glEnd();
 	
+	
+	pthread_mutex_lock(&paintBufferMutex);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, debugBuffer);
+	pthread_mutex_unlock(&paintBufferMutex);
 	glBegin(GL_TRIANGLE_FAN);
 	glTexCoord2f(0, 0); glVertex3f(640,480,0);
 	glTexCoord2f(1, 0); glVertex3f(1280,480,0);

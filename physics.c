@@ -4,7 +4,7 @@
  * Paint buffer is draw to by the physics engine, swapped with the render buffer
  * which is read by opengl to draw to screen
  */
-uint8_t *paintBuffer, *renderBuffer;
+uint8_t *paintBuffer, *renderBuffer, *debugBuffer;
 int physicsUpdate = 0;
 
 extern pthread_mutex_t rgbBufferMutex;
@@ -13,13 +13,14 @@ pthread_cond_t paintSignal = PTHREAD_COND_INITIALIZER;
 
 int *pixels;
 int drawCount;
-int frameRate = 1000/60; /* Milliseconds per frame */
+int frameRate = 1000/120; /* Milliseconds per frame */
 
 void initialize() {
 	paintBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	renderBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
+	debugBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	pixels = malloc(640 * 480 * sizeof(int));
-	memset(pixels, -1, sizeof(pixels));
+	memset(pixels, -1, 640 * 480 * sizeof(int));
 	drawCount = 0;
 }
 
@@ -94,8 +95,8 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 		if(pixels[i] == 0 && walls[3*i]) {
 			int h = i / 640;
 			int w = i % 640;
-			while(h < 480 && pixels[h*640+w] != -1) h++;
-			if(h < 480) pixels[h*640+w] = 0;
+			while(h > 0 && pixels[h*640+w] != -1) h--;
+			if(h > 0) pixels[h*640+w] = 0;
 			pixels[i] = 1;
 		}
 	}
@@ -114,11 +115,22 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 			paintBuffer[3*i+0] = 255; /* Gold colour */
 			paintBuffer[3*i+1] = 215;
 			paintBuffer[3*i+2] = 0;
+			debugBuffer[3*i+0] = 255; /* Gold colour */
+			debugBuffer[3*i+1] = 215;
+			debugBuffer[3*i+2] = 0;
 		}
 		else if(pixels[i] == 1) {
-			paintBuffer[3*i+0] = 139; /* Gray colour */
-			paintBuffer[3*i+1] = 137;
-			paintBuffer[3*i+2] = 137;
+			//paintBuffer[3*i+0] = 139; /* Gray colour */
+			//paintBuffer[3*i+1] = 137;
+			//paintBuffer[3*i+2] = 137;
+			debugBuffer[3*i+0] = 139; /* Gray colour */
+			debugBuffer[3*i+1] = 137;
+			debugBuffer[3*i+2] = 137;
+		}
+		else {
+			debugBuffer[3*i+0] = 0; /* Black colour */
+			debugBuffer[3*i+1] = 0;
+			debugBuffer[3*i+2] = 0;
 		}
 	}
 	
