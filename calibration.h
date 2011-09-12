@@ -5,4 +5,4 @@
  * baseline camera calibration to be differenced against
  * in future.
  */
-int* calibrate(float near, float far);
+void calibrate(float near, float far, IplImage* result);

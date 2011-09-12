@@ -20,14 +20,20 @@ pthread_t runThread;
 pthread_t cameraThread;
 
 GLuint rgbTexture;
+GLuint oneTexture;
+GLuint twoTexture;
+GLuint threeTexture;
 
 extern uint8_t *renderBuffer, *rgbFront;
+extern uint8_t *tempBuffer;
 extern int rgbUpdate, physicsUpdate;
 
 extern pthread_mutex_t paintBufferMutex;
 extern pthread_cond_t paintSignal;
 
-int* calibration;
+//int *calibration;
+IplImage* calibration;
+
 float near = 1.0f;
 float far = 100.0f;
 
@@ -45,9 +51,13 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	
-	calibration = calibrate(near, far);
+	//calibration = malloc(640 * 480 * 3 * sizeof(uint8_t));
+	calibration = cvCreateImage(cvSize(640,480), 8, 3);
+	calibrate(near, far, calibration);
 	
 	initialize();
+	// allocate buffers for thresholding
+	controlInit();
 	
 	result = pthread_create(&runThread, NULL, runLoop, NULL);
 	if(result) {
@@ -69,13 +79,16 @@ unsigned long getTime() {
 
 void *runLoop(void *arg) {
 	unsigned long lastTime = getTime();
+	int* walls = threshhold(calibration, near, far);
+	tempBuffer = walls;
 	while(1) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
 		
-		if(rgbUpdate) swapRGBBuffers();
-		
-		int* walls = threshhold(calibration, near, far);
+		if(rgbUpdate) {
+			swapRGBBuffers();
+			walls = threshhold(calibration, near, far);
+		}
 		simulate(delta, walls, rgbFront);
 		
 		lastTime = curTime;
@@ -95,7 +108,19 @@ void initScene() {
 	glShadeModel(GL_FLAT);
 
 	glGenTextures(1, &rgbTexture);
+	glGenTextures(1, &oneTexture);
+	glGenTextures(1, &twoTexture);
+	glGenTextures(1, &threeTexture);
 	glBindTexture(GL_TEXTURE_2D, rgbTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glBindTexture(GL_TEXTURE_2D, oneTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glBindTexture(GL_TEXTURE_2D, twoTexture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glBindTexture(GL_TEXTURE_2D, threeTexture);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
@@ -110,7 +135,9 @@ void resize(int width, int height) {
 }
 
 void keyboard(unsigned char key, int x, int y) {
-	
+	if(key == 'f') {
+		calibrate(near, far, calibration);
+	}
 }
 
 void render() {
@@ -124,7 +151,7 @@ void render() {
 	pthread_mutex_unlock(&paintBufferMutex);
 	
 	glBindTexture(GL_TEXTURE_2D, rgbTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, tempBuffer);
 
 	glBegin(GL_TRIANGLE_FAN);
 	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -133,6 +160,18 @@ void render() {
 	glTexCoord2f(1, 1); glVertex3f(640,480,0);
 	glTexCoord2f(0, 1); glVertex3f(0,480,0);
 	glEnd();
+	
+	/*
+	glBindTexture(GL_TEXTURE_2D, oneTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
+
+
+	glBindTexture(GL_TEXTURE_2D, twoTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
+
+	glBindTexture(GL_TEXTURE_2D, threeTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
+*/
 
 	glutSwapBuffers();
 }

@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -O4 -std=c99 -isystem/usr/local/include/libfreenect
-LDFLAGS = -lm -lglut -lGLU -lGL -lcv -lfreenect_sync -lhighgui -lfreenect
+LDFLAGS = -lm -lglut -lGLU -lGL -lcv -lhighgui -lfreenect
 
 all: kinetics
 

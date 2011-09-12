@@ -26,6 +26,8 @@ uint16_t *depthStage, *depthFront;
 uint8_t **rgbFrames;
 uint16_t **depthFrames;
 
+uint8_t *tempBuffer;
+
 int initCamera() {
 	/* Black magic... this converts kinect depth values to real distance */
 	for (int i = 0; i < 2048; i++) 
@@ -57,6 +59,8 @@ int initCamera() {
 	rgbBuffer = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	rgbStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	rgbFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
+	
+	tempBuffer = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	
 	depthStage = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
 	depthFront = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
@@ -196,10 +200,22 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 		*/
 }
 
-int *readCamera() {
-	return NULL;
+IplImage *cvGetDepth()
+{
+	static IplImage *image = 0;
+	if (!image) image = cvCreateImageHeader(cvSize(640,480), 16, 1);
+	pthread_mutex_lock(&rgbBufferMutex);
+	cvSetData(image, depthFront, 640*2);
+	pthread_mutex_unlock(&rgbBufferMutex);
+	return image;
 }
 
-int *readSilhouette() {
-	return NULL;
+IplImage *cvGetRGB()
+{
+	static IplImage *image = 0;
+	if (!image) image = cvCreateImageHeader(cvSize(640,480), 8, 3);
+	pthread_mutex_lock(&rgbBufferMutex);
+	cvSetData(image, rgbFront, 640*3);
+	pthread_mutex_unlock(&rgbBufferMutex);
+	return image;
 }
