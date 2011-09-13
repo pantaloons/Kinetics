@@ -36,11 +36,11 @@ void move(int i, int j, int k) {
 	int l;
 	switch(pixels[i + j]) {
 		/* Sand propogation */
-        case 0: 
-            if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == -1 || pixels[l = i + j + 640 + 1] == -1 || 
-				pixels[l = i + j + 640 - 1] == -1 || pixels[l = i + j - 1] == -1 || pixels[l = i + j + 1] == -1)) {
-					pixels[l] = 0;
-					pixels[i + j] = -1;
+        case 0:
+			if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == -1 || pixels[l = i + j + 640 + 1] == -1 || 
+			   pixels[l = i + j + 640 - 1] == -1 || pixels[l = i + j - 1] == -1 || pixels[l = i + j + 1] == -1)) {
+				pixels[l] = 0;
+				pixels[i + j] = -1;
 			}
             break;
 	}
