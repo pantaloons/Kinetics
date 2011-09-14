@@ -85,6 +85,14 @@ void update() {
 	}
 }
 
+void physicsLine(int startx, int starty, int destx, int desty) {
+}
+
+void resetPhysics() {
+	memset(pixels, -1, 640 * 480 * sizeof(int));
+	drawCount = 0;
+}
+
 unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	/* Update walls. At the moment we just remove and replace them */
 	for(int i = 0; i < 640 * 480; i++) {
@@ -99,12 +107,6 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 			while(pos >= 0 && pixels[pos] != -1) pos -= 640;
 			if(pos >= 0) pixels[pos] = 0;
 			pixels[i] = 1;
-			/*
-			int h = i / 640;
-			int w = i % 640;
-			while(h > 0 && pixels[h*640+w] != -1) h--;
-			if(h > 0) pixels[h*640+w] = 0;
-			pixels[i] = 1;*/
 		}
 	}
 	/* Simulate sand */
