@@ -13,6 +13,9 @@ pthread_cond_t frameUpdateSignal = PTHREAD_COND_INITIALIZER;
 int depthUpdate;
 int rgbUpdate;
 
+int prevMarkerx = -1;
+int prevMarkery = -1;
+
 /* The buffer is managed (written to) by libfreenect
  * rgbStage is a staging area for new frames, only the latest frame is staged
  * the buffer and staging area get swapped on a frame update, while the front and staging
@@ -47,6 +50,9 @@ int initCamera() {
 			v = powf(v, 3) * 6;
 			t_gamma_i[i] = v * 6 * 256;
 	}
+	
+	depthUpdate = 0;
+	rgbUpdate = 0;
 	
 	if(freenect_init(&context, NULL) < 0) {
 		printf("freenect_init() failed\n");
@@ -168,7 +174,7 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 		depthStage[i] = depth[i];
 		int pval = t_gamma_i[depth[i]];
 		
-		if(pval > t_gamma[backgroundDepth[i]]) backgroundDepth[i] = pval;
+		//if(pval > t_gamma[backgroundDepth[i]]) backgroundDepth[i] = pval;
 		
 		int lb = pval & 0xff;
 		switch (pval >> 8) {
