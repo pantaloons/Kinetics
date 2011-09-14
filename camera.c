@@ -23,6 +23,12 @@ uint8_t *rgbBuffer, *rgbStage, *rgbFront;
  */
 uint16_t *depthStage, *depthFront;
 
+/* 
+ * Buffer for maximum depth for that pixel
+ */
+uint16_t *backgroundDepth;
+
+
 /*
  * Some debugging buffers for depth imaging
  */
@@ -65,6 +71,10 @@ int initCamera() {
 	
 	depthStage = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
 	depthFront = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
+	
+	//~ backgroundDepth = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
+	// calloc inits all values to 0
+	backgroundDepth = (uint16_t*)calloc(640 * 480, sizeof(uint16_t));
 	
 	depthImageStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	depthImageFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
@@ -156,8 +166,10 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 	pthread_mutex_lock(&rgbBufferMutex);
 	for(int i = 0; i < 640 * 480; i++) {
 		depthStage[i] = depth[i];
-		
 		int pval = t_gamma_i[depth[i]];
+		
+		if(pval > t_gamma[backgroundDepth[i]]) backgroundDepth[i] = pval;
+		
 		int lb = pval & 0xff;
 		switch (pval >> 8) {
 			case 0:

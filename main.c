@@ -28,12 +28,15 @@ extern pthread_mutex_t paintBufferMutex;
 extern pthread_cond_t paintSignal;
 pthread_mutex_t wallBufferMutex;
 
+extern freenect_device* device;
+
 IplImage* calibration;
 uint8_t* wallBuffer = NULL;
 
 float near = 1.0f;
 float far = 100.0f;
 
+int freenect_angle = 0;
 int renderWidth = 640;
 int renderHeight = 480;
 
@@ -143,6 +146,46 @@ void keyboard(unsigned char key, int x, int y) {
 		glutReshapeWindow(1280, 960);
 		glutPostRedisplay();
 	}
+	
+	//~ if (key == 27) {
+		//~ die = 1;
+		//~ pthread_join(freenect_thread, NULL);
+		//~ glutDestroyWindow(window);
+		//~ free(depth_mid);
+		//~ free(depth_front);
+		//~ free(rgb_back);
+		//~ free(rgb_mid);
+		//~ free(rgb_front);
+		//~ // Not pthread_exit because OSX leaves a thread lying around and doesn't exit
+		//~ exit(0);
+	//~ }
+	if (key == 'w') {
+		freenect_angle++;
+		if (freenect_angle > 30) {
+			freenect_angle = 30;
+		}
+	}
+	if (key == 's') {
+		freenect_angle = 0;
+	}
+	// Will change between video modes
+	/*
+	if (key == 'v') {
+		if (requested_format == FREENECT_VIDEO_IR_8BIT)
+			requested_format = FREENECT_VIDEO_RGB;
+		else if (requested_format == FREENECT_VIDEO_RGB)
+			requested_format = FREENECT_VIDEO_YUV_RGB;
+		else
+			requested_format = FREENECT_VIDEO_IR_8BIT;
+	}
+	*/
+	if (key == 'x') {
+		freenect_angle--;
+		if (freenect_angle < -30) {
+			freenect_angle = -30;
+		}
+	}
+	freenect_set_tilt_degs(device, freenect_angle);
 }
 
 void render() {

@@ -1,5 +1,7 @@
 #include "control.h"
 
+extern pthread_mutex_t rgbBufferMutex;
+extern uint16_t* backgroundDepth;
 IplImage* differenceImage;
 uint8_t* thresh;
 
@@ -15,6 +17,23 @@ void controlInit() {
  */
 uint8_t* threshhold(IplImage* calibration, float near, float far) {
 	IplImage *rgbImage = cvGetRGB();
+	IplImage *depthImage = cvGetDepth();
+	
+	//~ pthread_mutex_lock(&rgbBufferMutex);
+	//~ for(int i=0; i < 640 * 480; i++) {
+		//~ if(backgroundDepth[i] - depthImage->imageData[i] > 50) {
+			//~ thresh[3*i] = 255;
+			//~ thresh[3*i+1] = 255;
+			//~ thresh[3*i+2] = 255;
+		//~ }
+		//~ else {
+			//~ thresh[3*i] = 0;
+			//~ thresh[3*i+1] = 0;
+			//~ thresh[3*i+2] = 0;
+		//~ }
+	//~ }
+	//~ pthread_mutex_unlock(&rgbBufferMutex);
+	
 	//diff current frame with previous frame
 	cvAbsDiff(calibration, rgbImage, differenceImage);	
 	//threshold difference image
