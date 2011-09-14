@@ -15,6 +15,7 @@ int rgbUpdate;
 
 int prevMarkerx = -1;
 int prevMarkery = -1;
+int foundPrev = 0;
 
 /* The buffer is managed (written to) by libfreenect
  * rgbStage is a staging area for new frames, only the latest frame is staged
@@ -124,24 +125,13 @@ void *cameraLoop(void *arg) {
 	freenect_set_video_mode(device, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
 	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
 	freenect_set_video_buffer(device, rgbBuffer);
+	freenect_set_log_level(context, FREENECT_LOG_WARNING);
 
 	freenect_start_depth(device);
 	freenect_start_video(device);
 	
 	int accelCount = 0;
-	while(freenect_process_events(context) >= 0) {
-		if (accelCount++ >= 2000)
-		{
-			accelCount = 0;
-			freenect_raw_tilt_state* state;
-			freenect_update_tilt_state(device);
-			state = freenect_get_tilt_state(device);
-			double dx, dy, dz;
-			freenect_get_mks_accel(state, &dx, &dy, &dz);
-			printf("\r raw acceleration: %4d %4d %4d  mks acceleration: %4f %4f %4f", state->accelerometer_x, state->accelerometer_y, state->accelerometer_z, dx, dy, dz);
-			fflush(stdout);
-		}
-	}
+	while(freenect_process_events(context) >= 0) ;
 
 	freenect_stop_depth(device);
 	freenect_stop_video(device);
@@ -161,6 +151,18 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbStage = rgb;
 
 	rgbUpdate++;
+	
+	int rx, ry;
+	if(findMarker(rgbStage, &rx, &ry)) {
+		if(foundPrev) physicsLine(prevMarkerx, prevMarkery, rx, ry);
+		prevMarkerx = rx;
+		prevMarkery = ry;
+		foundPrev = 1;
+	}
+	else {
+		foundPrev = 0;
+	}
+	
 	pthread_cond_signal(&frameUpdateSignal);
 	pthread_mutex_unlock(&rgbBufferMutex);
 }
