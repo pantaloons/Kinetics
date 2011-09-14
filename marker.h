@@ -1,4 +1,6 @@
+#include <stdint.h>
+
 /**
  * Locate the blue marker in the image
  */
-int findMarker(int* rgb, int* outx, int* outy);
+int findMarker(uint8_t* rgb, int* outx, int* outy);
