@@ -31,7 +31,6 @@ uint16_t *depthStage, *depthFront;
  */
 uint16_t *backgroundDepth;
 
-
 /*
  * Some debugging buffers for depth imaging
  */

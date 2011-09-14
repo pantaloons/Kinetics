@@ -51,7 +51,9 @@ uint8_t* threshhold(IplImage* calibration, float near, float far) {
 	// binary open on difference image to close white patches in sillhouette
 	//cvDilate(differenceImage, differenceImage, NULL, 7);
 	//cvErode(differenceImage, differenceImage, NULL, 7);
-	IplConvKernel* k = cvCreateStructuringElementEx(5,5,2,2,CV_SHAPE_ELLIPSE,NULL);
+	IplConvKernel* k = cvCreateStructuringElementEx(2,2,1,1,CV_SHAPE_ELLIPSE,NULL);
+	//cvErode(differenceImage, differenceImage, k, 1);
+    //cvDilate(differenceImage, differenceImage, k, 1);
     cvErode(differenceImage, differenceImage, k, 1);
     cvReleaseStructuringElement(&k);
 	

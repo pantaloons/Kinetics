@@ -48,10 +48,12 @@ void move(int i, int j, int k) {
 
 void update() {
 	/* Flow new particles down */
-	int k = 640 / 2;
-	for(int a = 1; a < 3; a++) {
-		for(int i = -10; i <= 10; i++) {
-			if(rand() % 10 < 1) pixels[i + k] = 0;
+	int k = 640 / 4;
+	for(int i = 0; i < 4; i++) {
+		for(int a = 1; a < 3; a++) {
+			for(int j = -10; j <= 10; j++) {
+				if(rand() % 10 < 1) pixels[(i * k + (k / 2)) + j] = 0;
+			}
 		}
 	}
 	/* Update existing particles */
@@ -93,11 +95,16 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	}
 	for(int i = 0; i < 640 * 480; i++) {
 		if(pixels[i] == 0 && walls[3*i]) {
+			int pos = i;
+			while(pos >= 0 && pixels[pos] != -1) pos -= 640;
+			if(pos >= 0) pixels[pos] = 0;
+			pixels[i] = 1;
+			/*
 			int h = i / 640;
 			int w = i % 640;
 			while(h > 0 && pixels[h*640+w] != -1) h--;
 			if(h > 0) pixels[h*640+w] = 0;
-			pixels[i] = 1;
+			pixels[i] = 1;*/
 		}
 	}
 	/* Simulate sand */
@@ -112,9 +119,9 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	/* Render sand / walls on top of image */
 	for(int i = 0; i < 640 * 480; i++) {
 		if(pixels[i] == 0) {
-			paintBuffer[3*i+0] = 255; /* Gold colour */
-			paintBuffer[3*i+1] = 215;
-			paintBuffer[3*i+2] = 0;
+			paintBuffer[3*i+0] = 194; /* Gold colour */
+			paintBuffer[3*i+1] = 178;
+			paintBuffer[3*i+2] = 128;
 			debugBuffer[3*i+0] = 255; /* Gold colour */
 			debugBuffer[3*i+1] = 215;
 			debugBuffer[3*i+2] = 0;

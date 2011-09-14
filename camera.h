@@ -7,6 +7,8 @@
 #include "libfreenect.h"
 #include "libfreenect_sync.h"
 
+#include "marker.h"
+
 int initCamera();
 
 void swapRGBBuffers();

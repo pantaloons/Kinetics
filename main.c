@@ -24,8 +24,8 @@ GLuint paintTexture;
 extern uint8_t *renderBuffer, *rgbFront, *depthImageFront, *debugBuffer;
 extern volatile int rgbUpdate, depthUpdate, physicsUpdate;
 
-extern pthread_mutex_t paintBufferMutex;
-extern pthread_cond_t paintSignal;
+extern pthread_mutex_t paintBufferMutex, rgbBufferMutex;
+extern pthread_cond_t paintSignal, frameUpdateSignal;
 pthread_mutex_t wallBufferMutex;
 
 extern freenect_device* device;
@@ -57,6 +57,13 @@ int main(int argc, char** argv) {
 		printf("pthread_create() failed\n");
 		return 1;
 	}
+	pthread_mutex_lock(&rgbBufferMutex);
+	while(!rgbUpdate || !depthUpdate) {
+		pthread_cond_wait(&frameUpdateSignal, &rgbBufferMutex); /* We wait for the camera to initialize itself */
+	}
+	pthread_mutex_unlock(&rgbBufferMutex);
+	swapRGBBuffers();
+	swapDepthBuffers();
 	
 	calibration = cvCreateImage(cvSize(640,480), 8, 3);
 	calibrate(near, far, calibration);
@@ -83,7 +90,6 @@ unsigned long getTime() {
 
 void *runLoop(void *arg) {
 	unsigned long lastTime = getTime();
-	while(!rgbUpdate); /* We wait for the camera to initialize itself */
 	while(1) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
