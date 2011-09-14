@@ -8,6 +8,7 @@
 #include "libfreenect_sync.h"
 
 #include "marker.h"
+#include "physics.h"
 
 int initCamera();
 
