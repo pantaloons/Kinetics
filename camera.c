@@ -221,8 +221,7 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 	pthread_mutex_unlock(&rgbBufferMutex);
 }
 
-IplImage *cvGetDepth()
-{
+IplImage *cvGetDepth() {
 	static IplImage *image = 0;
 	if (!image) image = cvCreateImageHeader(cvSize(640,480), 16, 1);
 	pthread_mutex_lock(&rgbBufferMutex);
@@ -231,8 +230,7 @@ IplImage *cvGetDepth()
 	return image;
 }
 
-IplImage *cvGetRGB()
-{
+IplImage *cvGetRGB() {
 	static IplImage *image = 0;
 	if (!image) image = cvCreateImageHeader(cvSize(640,480), 8, 3);
 	pthread_mutex_lock(&rgbBufferMutex);

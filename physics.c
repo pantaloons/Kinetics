@@ -96,13 +96,13 @@ void resetPhysics() {
 unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	/* Update walls. At the moment we just remove and replace them */
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 1 && !walls[3*i]) pixels[i] = -1;
-		else if(pixels[i] == -1 && walls[3*i]) {
+		if(pixels[i] == 1 && (!walls[3*i] || !walls[3*i+1] || !walls[3*i+2])) pixels[i] = -1;
+		else if(pixels[i] == -1 && (walls[3*i] && walls[3*i+1] && walls[3*i+2])) {
 			pixels[i] = 1;
 		}
 	}
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 0 && walls[3*i]) {
+		if(pixels[i] == 0 && (walls[3*i] && walls[3*i+1] && walls[3*i+2])) {
 			int pos = i;
 			while(pos >= 0 && pixels[pos] != -1) pos -= 640;
 			if(pos >= 0) pixels[pos] = 0;
@@ -121,9 +121,9 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	/* Render sand / walls on top of image */
 	for(int i = 0; i < 640 * 480; i++) {
 		if(pixels[i] == 0) {
-			paintBuffer[3*i+0] = 194; /* Gold colour */
-			paintBuffer[3*i+1] = 178;
-			paintBuffer[3*i+2] = 128;
+			paintBuffer[3*i+0] = 255; /* Gold colour */
+			paintBuffer[3*i+1] = 215;
+			paintBuffer[3*i+2] = 0;
 			debugBuffer[3*i+0] = 255; /* Gold colour */
 			debugBuffer[3*i+1] = 215;
 			debugBuffer[3*i+2] = 0;
