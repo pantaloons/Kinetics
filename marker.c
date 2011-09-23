@@ -26,7 +26,7 @@ int rgbToHue2(int ri, int gi, int bi) {
 	return (int)(h * 255);
 }
 
-IplImage* GetThresholdedImage(IplImage* img)
+IplImage* GetThresholdedImage(IplImage* img, int hue)
 {
 	// Convert the image into an HSV image
 	IplImage* imgHSV = cvCreateImage(cvGetSize(img), 8, 3);
@@ -37,10 +37,10 @@ IplImage* GetThresholdedImage(IplImage* img)
 
 
 	// Values 20,100,100 to 30,255,255 working perfect for yellow at around 6pm
-	cvInRangeS(imgHSV, cvScalar(22, 100, 100,1), cvScalar(28, 225, 200,1), imgThreshed);
+	cvInRangeS(imgHSV, cvScalar(hue-3, 100, 100,1), cvScalar(hue+3, 200, 200,1), imgThreshed);
 	
 	
-	IplConvKernel* k = cvCreateStructuringElementEx(3,3,1,1,CV_SHAPE_ELLIPSE,NULL);
+	IplConvKernel* k = cvCreateStructuringElementEx(5,5,1,1,CV_SHAPE_ELLIPSE,NULL);
 	cvErode(imgThreshed, imgThreshed, k, 1);
     cvReleaseStructuringElement(&k);
 	
@@ -88,12 +88,12 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	cvSetData(img2, rgb, 640*3);
 	
 	// Holds the yellow thresholded image (yellow = white, rest = black)
-	IplImage* imgYellowThresh = GetThresholdedImage(img2);
+	IplImage* imgThresh = GetThresholdedImage(img2,hue);
 		
 	
 	// Calculate the mouments to estimate the position of the ball
 	CvMoments *moments = (CvMoments*)malloc(sizeof(CvMoments));
-	cvMoments(imgYellowThresh, moments, 1);
+	cvMoments(imgThresh, moments, 1);
 
 	// The actual moment values
 	double moment10 = cvGetSpatialMoment(moments, 1, 0);
@@ -104,12 +104,14 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	*outx = moment10/area;
 	*outy = moment01/area;
 	
+	//cvReleaseImage(&img2);
+	//(moments);
 	
-	CvSize size;
-	
-	//cvGetRawData(imgYellowThresh,output,8,&size);
-	
-	//return 0;
+	if(0){//image not there){
+		
+		return 0;
+		
+	}
 	//printf("Found marker at position: %d, %d\n", *outx, *outy);
 	
 	return 1;

@@ -148,21 +148,21 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	
 	int rx, ry;
 	if(1) { 
-		if(findMarker(35, rgbStage, &rx, &ry)) {
-			if(foundPrev[35]) physicsLine(prevMarkerX[35], prevMarkerY[35], rx, ry);
-			prevMarkerX[35] = rx;
-			prevMarkerY[35] = ry;
-			foundPrev[35] = 1;
+		if(findMarker(25, rgbStage, &rx, &ry)) {
+			if(foundPrev[25]) physicsLine(prevMarkerX[25], prevMarkerY[25], rx, ry);
+			prevMarkerX[25] = rx;
+			prevMarkerY[25] = ry;
+			foundPrev[25] = 1;
 		}
 		else {
-			foundPrev[35] = 0;
+			foundPrev[25] = 0;
 		}
 		
-		if(findMarker(223, rgbStage, &rx, &ry)) {
-			if(foundPrev[223]) physicsErase(prevMarkerX[223], prevMarkerY[223], rx, ry);
-			prevMarkerX[223] = rx;
-			prevMarkerY[223] = ry;
-			foundPrev[223] = 1;
+		if(findMarker(111, rgbStage, &rx, &ry)) {
+			if(foundPrev[111]) physicsErase(prevMarkerX[111], prevMarkerY[111], rx, ry);
+			prevMarkerX[111] = rx;
+			prevMarkerY[111] = ry;
+			foundPrev[111] = 1;
 		}
 		else {
 			foundPrev[223] = 0;
