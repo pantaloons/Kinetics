@@ -22,3 +22,4 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp);
 
 IplImage *cvGetDepth();
 IplImage *cvGetRGB();
+int rgbToHue(int ri, int gi, int bi);

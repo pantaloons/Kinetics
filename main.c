@@ -21,10 +21,10 @@ pthread_t cameraThread;
 
 GLuint paintTexture;
 
-extern uint8_t *renderBuffer, *rgbFront, *depthImageFront, *debugBuffer;
+extern uint8_t *renderBuffer, *rgbFront, *depthImageFront, *debugBuffer, *hsvDebug;
 extern volatile int rgbUpdate, depthUpdate, physicsUpdate;
 
-extern pthread_mutex_t paintBufferMutex, rgbBufferMutex;
+extern pthread_mutex_t paintBufferMutex, rgbBufferMutex, hsvMutex;
 extern pthread_cond_t paintSignal, frameUpdateSignal;
 pthread_mutex_t wallBufferMutex;
 
@@ -52,6 +52,9 @@ int main(int argc, char** argv) {
 		printf("camera initialization failed!\n");
 		return 1;
 	}
+	
+	hsvDebug = malloc(640 * 480 * 3 * sizeof(uint8_t));
+	
 	int result = pthread_create(&cameraThread, NULL, cameraLoop, NULL);
 	if(result) {
 		printf("pthread_create() failed\n");
@@ -206,9 +209,12 @@ void renderFour() {
 	glTexCoord2f(0, 1); glVertex3f(640,480,0);
 	glEnd();
 
-	pthread_mutex_lock(&wallBufferMutex);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, wallBuffer);
-	pthread_mutex_unlock(&wallBufferMutex);
+	//pthread_mutex_lock(&wallBufferMutex);
+	//glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, wallBuffer);
+	//pthread_mutex_unlock(&wallBufferMutex);
+	pthread_mutex_lock(&hsvMutex);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, hsvDebug);
+	pthread_mutex_unlock(&hsvMutex);
 	glBegin(GL_TRIANGLE_FAN);
 	glTexCoord2f(0, 0); glVertex3f(0,480,0);
 	glTexCoord2f(1, 0); glVertex3f(640,480,0);

@@ -11,7 +11,7 @@ extern pthread_mutex_t rgbBufferMutex;
 pthread_mutex_t paintBufferMutex;
 pthread_cond_t paintSignal = PTHREAD_COND_INITIALIZER;
 
-int *pixels;
+int *pixels, *lines;
 int drawCount;
 int frameRate = 1000/120; /* Milliseconds per frame */
 
@@ -20,7 +20,9 @@ void initialize() {
 	renderBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	debugBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	pixels = malloc(640 * 480 * sizeof(int));
+	lines = malloc(640 * 480 * sizeof(int));
 	memset(pixels, -1, 640 * 480 * sizeof(int));
+	memset(lines, 0, 640 * 480 * sizeof(int));
 	drawCount = 0;
 }
 
@@ -86,23 +88,30 @@ void update() {
 }
 
 void physicsLine(int startx, int starty, int destx, int desty) {
+	for(int i = startx - 15; i <= startx + 15; i++) {
+		for(int j = starty - 15; j <= starty + 15; j++) {
+			if(i < 0 || i >= 640 || j < 0 || j >= 480) continue;
+			lines[j * 640 + i] = 1;
+		}
+	}
 }
 
 void resetPhysics() {
 	memset(pixels, -1, 640 * 480 * sizeof(int));
+	memset(lines, 0, 640 * 480 * sizeof(int));
 	drawCount = 0;
 }
 
 unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	/* Update walls. At the moment we just remove and replace them */
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 1 && (!walls[3*i] || !walls[3*i+1] || !walls[3*i+2])) pixels[i] = -1;
-		else if(pixels[i] == -1 && (walls[3*i] && walls[3*i+1] && walls[3*i+2])) {
+		if(pixels[i] == 1 && (!lines[i] && !walls[3*i])) pixels[i] = -1;
+		else if(pixels[i] == -1 && (lines[i] || walls[3*i])) {
 			pixels[i] = 1;
 		}
 	}
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 0 && (walls[3*i] && walls[3*i+1] && walls[3*i+2])) {
+		if(pixels[i] == 0 && (lines[i] || walls[3*i])) {
 			int pos = i;
 			while(pos >= 0 && pixels[pos] != -1) pos -= 640;
 			if(pos >= 0) pixels[pos] = 0;

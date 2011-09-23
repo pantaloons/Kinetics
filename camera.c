@@ -4,6 +4,8 @@ freenect_context *context;
 freenect_device *device;
 
 #define HISTORY_SIZE 10
+#define MARKERHMIN 53
+#define MARKERHMAX 60
 
 float t_gamma[2048];
 uint16_t t_gamma_i[2048];
@@ -26,11 +28,6 @@ uint8_t *rgbBuffer, *rgbStage, *rgbFront;
  * As above, there is no back buffer because libfreenect uses an internal depth buffer
  */
 uint16_t *depthStage, *depthFront;
-
-/* 
- * Buffer for maximum depth for that pixel
- */
-uint16_t *backgroundDepth;
 
 /*
  * Some debugging buffers for depth imaging
@@ -77,10 +74,6 @@ int initCamera() {
 	
 	depthStage = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
 	depthFront = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
-	
-	//~ backgroundDepth = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
-	// calloc inits all values to 0
-	backgroundDepth = (uint16_t*)calloc(640 * 480, sizeof(uint16_t));
 	
 	depthImageStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
 	depthImageFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
@@ -153,7 +146,7 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbUpdate++;
 	
 	int rx, ry;
-	if(findMarker(rgbStage, &rx, &ry)) {
+	if(findMarker(rgbToHue(255, 225, 0), rgbStage, &rx, &ry)) {
 		if(foundPrev) physicsLine(prevMarkerx, prevMarkery, rx, ry);
 		prevMarkerx = rx;
 		prevMarkery = ry;
@@ -174,8 +167,6 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 	for(int i = 0; i < 640 * 480; i++) {
 		depthStage[i] = depth[i];
 		int pval = t_gamma_i[depth[i]];
-		
-		//if(pval > t_gamma[backgroundDepth[i]]) backgroundDepth[i] = pval;
 		
 		int lb = pval & 0xff;
 		switch (pval >> 8) {
@@ -237,4 +228,25 @@ IplImage *cvGetRGB() {
 	cvSetData(image, rgbFront, 640*3);
 	pthread_mutex_unlock(&rgbBufferMutex);
 	return image;
+}
+
+/**
+ * Given a pixel colour, rgb (0-255), compute the hue (0-360).
+ */
+int rgbToHue(int ri, int gi, int bi) {
+	double r = ri / 255.0f;
+	double g = gi / 255.0f;
+	double b = bi / 255.0f;
+	double max = MAX(r, MAX(g, b));
+	double min = MIN(r, MIN(g, b));
+	double d = max - min;
+	double h = 0;
+	if(!d) return h;
+	else {
+		if(max == r) h = (g - b) / d + (g < b ? 6 : 0);
+		else if(max == g) h = (b - r) / d + 2;
+		else if(max == b) h = (r - g) / d + 4;
+	}
+	h / 6.0f;
+	return (int)(h * 255);
 }
