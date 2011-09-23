@@ -8,6 +8,13 @@
 uint8_t *hsvDebug;
 pthread_mutex_t hsvMutex;
 
+/* Visited array for flood fill */
+int visited[640 * 480];
+int queue[640 * 480];
+int list[640 * 480];
+int qindex = 0;
+int lindex = 0;
+
 int rgbToHue2(int ri, int gi, int bi) {
 	double r = ri / 255.0f;
 	double g = gi / 255.0f;
@@ -24,6 +31,39 @@ int rgbToHue2(int ri, int gi, int bi) {
 	}
 	h /= 6.0f;
 	return (int)(h * 255);
+}
+
+void floodFill(uint8_t *image) {
+	memset(visited, 0, sizeof(visited));
+	qindex = 0;
+	for(int i = 0; i < 640 * 480; i++) {
+		if(visited[i] || image[i] == 0) continue;
+		int count = 0;
+		lindex = 0;
+		queue[qindex++] = i;
+		list[lindex++] = i;
+		while(qindex > 0) {
+			int pos = queue[--qindex];
+			count++;
+			int x = pos % 640;
+			int y = pos / 640;
+			for(int j = -5; j <= 5; j++) {
+				for(int k = -5; k <= 5; k++) {
+					if(j * j + k * k > 25) continue;
+					int nx = x + j;
+					int ny = y + k;
+					if(nx < 0 || ny < 0 || nx >= 640 || ny >= 480) continue;
+					if(visited[nx + ny * 640] || image[nx + ny * 640] == 0) continue;
+					queue[qindex++] = nx + ny * 640;
+					list[lindex++] = nx + ny * 640;
+					visited[nx + ny * 640] = 1;
+				}
+			}
+		}
+		if(count < 15) {
+			for(int j = 0; j < count; j++) image[list[j]] = 0;
+		}
+	}
 }
 
 IplImage* GetThresholdedImage(IplImage* img, int hue)
@@ -43,6 +83,8 @@ IplImage* GetThresholdedImage(IplImage* img, int hue)
 	IplConvKernel* k = cvCreateStructuringElementEx(5,5,1,1,CV_SHAPE_ELLIPSE,NULL);
 	cvErode(imgThreshed, imgThreshed, k, 1);
     cvReleaseStructuringElement(&k);
+    
+    floodFill(imgThreshed->imageData);
 	
 	pthread_mutex_lock(&hsvMutex);
 		
