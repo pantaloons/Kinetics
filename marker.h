@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <math.h>
 #include <pthread.h>
+#include <opencv/cv.h>
+
 
 /**
  * Locate the blue marker in the image

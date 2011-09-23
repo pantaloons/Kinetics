@@ -137,6 +137,11 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 			debugBuffer[3*i+1] = 215;
 			debugBuffer[3*i+2] = 0;
 		}
+		else if(lines[i]){
+			debugBuffer[3*i+0] = 0; /* Gray colour */
+			debugBuffer[3*i+1] = 137;
+			debugBuffer[3*i+2] = 0;
+		}
 		else if(pixels[i] == 1) {
 			//paintBuffer[3*i+0] = 139; /* Gray colour */
 			//paintBuffer[3*i+1] = 137;

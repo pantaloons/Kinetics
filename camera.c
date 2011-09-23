@@ -18,6 +18,7 @@ int rgbUpdate;
 int prevMarkerx = -1;
 int prevMarkery = -1;
 int foundPrev = 0;
+int markerUpdate = 0;
 
 /* The buffer is managed (written to) by libfreenect
  * rgbStage is a staging area for new frames, only the latest frame is staged
@@ -144,18 +145,20 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbStage = rgb;
 
 	rgbUpdate++;
+	markerUpdate++;
 	
 	int rx, ry;
-	if(findMarker(35, rgbStage, &rx, &ry)) {
-		if(foundPrev) physicsLine(prevMarkerx, prevMarkery, rx, ry);
-		prevMarkerx = rx;
-		prevMarkery = ry;
-		foundPrev = 1;
-	}
-	else {
-		foundPrev = 0;
-	}
-	
+	if(1){ 
+		if( findMarker(35, rgbStage, &rx, &ry)) {
+			if(foundPrev) physicsLine(prevMarkerx, prevMarkery, rx, ry);
+			prevMarkerx = rx;
+			prevMarkery = ry;
+			foundPrev = 1;
+		}
+		else {
+			foundPrev = 0;
+		}
+	}	
 	pthread_cond_signal(&frameUpdateSignal);
 	pthread_mutex_unlock(&rgbBufferMutex);
 }
