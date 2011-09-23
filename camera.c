@@ -146,7 +146,7 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbUpdate++;
 	
 	int rx, ry;
-	if(findMarker(rgbToHue(255, 225, 0), rgbStage, &rx, &ry)) {
+	if(findMarker(35, rgbStage, &rx, &ry)) {
 		if(foundPrev) physicsLine(prevMarkerx, prevMarkery, rx, ry);
 		prevMarkerx = rx;
 		prevMarkery = ry;
