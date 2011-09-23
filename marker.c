@@ -105,9 +105,9 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	*outy = moment01/area;
 	
 	//cvReleaseImage(&img2);
-	//(moments);
+	free(moments);
 	
-	if(0){//image not there){
+	if(*outx < 1 || *outy < 1){
 		
 		return 0;
 		
