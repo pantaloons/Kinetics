@@ -1,13 +1,7 @@
 #include "marker.h"
 
-
 #define HEIGHT 480
 #define WIDTH 640
-
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX3(a, b, c) (MAX(MAX(a, b), c))in
-#define MIN3(a, b, c) (MIN(MIN(a, b), c))
 
 /* HSV conversion code based on http://en.literateprograms.org/RGB_to_HSV_color_space_conversion_(C) */
 
@@ -87,7 +81,7 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	 * return 1 and save the x and y position (center)
 	 * to outx, outy */
 	
-	printf("Hue %d\n", rgbToHue2(rgb[0], rgb[1], rgb[2]));
+	//printf("Hue %d\n", rgbToHue2(rgb[0], rgb[1], rgb[2]));
 
 	
 	IplImage* img2=cvCreateImageHeader(cvSize(640,480), 8, 3);
@@ -116,7 +110,7 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	//cvGetRawData(imgYellowThresh,output,8,&size);
 	
 	//return 0;
-	printf("Found marker at position: %d, %d\n", *outx, *outy);
+	//printf("Found marker at position: %d, %d\n", *outx, *outy);
 	
 	return 1;
 }

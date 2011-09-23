@@ -15,10 +15,10 @@ pthread_cond_t frameUpdateSignal = PTHREAD_COND_INITIALIZER;
 int depthUpdate;
 int rgbUpdate;
 
-int prevMarkerx = -1;
-int prevMarkery = -1;
-int foundPrev = 0;
-int markerUpdate = 0;
+/* 256 values for the 256 different hues we can track. */
+int prevMarkerX[256];
+int prevMarkerY[256];
+int foundPrev[256];
 
 /* The buffer is managed (written to) by libfreenect
  * rgbStage is a staging area for new frames, only the latest frame is staged
@@ -145,18 +145,27 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbStage = rgb;
 
 	rgbUpdate++;
-	markerUpdate++;
 	
 	int rx, ry;
-	if(1){ 
-		if( findMarker(35, rgbStage, &rx, &ry)) {
-			if(foundPrev) physicsLine(prevMarkerx, prevMarkery, rx, ry);
-			prevMarkerx = rx;
-			prevMarkery = ry;
-			foundPrev = 1;
+	if(1) { 
+		if(findMarker(35, rgbStage, &rx, &ry)) {
+			if(foundPrev[35]) physicsLine(prevMarkerX[35], prevMarkerY[35], rx, ry);
+			prevMarkerX[35] = rx;
+			prevMarkerY[35] = ry;
+			foundPrev[35] = 1;
 		}
 		else {
-			foundPrev = 0;
+			foundPrev[35] = 0;
+		}
+		
+		if(findMarker(223, rgbStage, &rx, &ry)) {
+			if(foundPrev[223]) physicsErase(prevMarkerX[223], prevMarkerY[223], rx, ry);
+			prevMarkerX[223] = rx;
+			prevMarkerY[223] = ry;
+			foundPrev[223] = 1;
+		}
+		else {
+			foundPrev[223] = 0;
 		}
 	}	
 	pthread_cond_signal(&frameUpdateSignal);

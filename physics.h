@@ -6,7 +6,9 @@
 
 void initialize();
 void resetPhysics();
+
 void physicsLine(int startx, int starty, int destx, int desty);
+void physicsErase(int startx, int starty, int destx, int desty);
 
 void swapPhysicsBuffers();
 /**

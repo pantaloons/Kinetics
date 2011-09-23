@@ -96,6 +96,15 @@ void physicsLine(int startx, int starty, int destx, int desty) {
 	}
 }
 
+void physicsErase(int startx, int starty, int destx, int desty) {
+	for(int i = startx - 15; i <= startx + 15; i++) {
+		for(int j = starty - 15; j <= starty + 15; j++) {
+			if(i < 0 || i >= 640 || j < 0 || j >= 480) continue;
+			lines[j * 640 + i] = 0;
+		}
+	}
+}
+
 void resetPhysics() {
 	memset(pixels, -1, 640 * 480 * sizeof(int));
 	memset(lines, 0, 640 * 480 * sizeof(int));
@@ -137,7 +146,10 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 			debugBuffer[3*i+1] = 215;
 			debugBuffer[3*i+2] = 0;
 		}
-		else if(lines[i]){
+		else if(lines[i]) {
+			paintBuffer[3*i+0] = 139; /* Gray colour */
+			paintBuffer[3*i+1] = 137;
+			paintBuffer[3*i+2] = 137;
 			debugBuffer[3*i+0] = 0; /* Gray colour */
 			debugBuffer[3*i+1] = 137;
 			debugBuffer[3*i+2] = 0;
