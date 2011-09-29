@@ -182,8 +182,9 @@ void keyboard(unsigned char key, int x, int y) {
 	}
 	else if(key == 'c') {
 		 uint16_t r = read_cmos_register(device, 0x0106);
-		 cameraRegister = initRegister - cameraRegister;
-		 write_cmos_register(device, 0x0106, cameraRegister | 2 | (1 << 12) | (1 << 13) | (1 << 9) || (1 << 6) || (1 << 3)); // r);
+		 //cameraRegister = initRegister - cameraRegister;
+		 write_cmos_register(device, 0x0106, r & ~(1 << 14) & ~(1 << 13));
+		 //write_cmos_register(device, 0x0106, r | 2 | (1 << 12) | (1 << 13) | (1 << 9) || (1 << 6) || (1 << 3)); // r);
 		 //write_cmos_register(device, 0x0125, 0x0005); // r);
 		 //write_cmos_register(device, 0x8105, 0x07);
 	}
