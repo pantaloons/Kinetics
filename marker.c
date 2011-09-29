@@ -20,8 +20,7 @@ IplImage* img2;
 IplImage* imgThreshed;
 IplImage* imgHSV;
 
-void markerInit(void)
-{
+void markerInit(void) {
 	moments = (CvMoments*)malloc(sizeof(CvMoments));
 	img2 = cvCreateImageHeader(cvSize(640,480), 8, 3);
 	imgThreshed = cvCreateImage(cvGetSize(img2), 8, 1);
@@ -42,9 +41,9 @@ void floodFill(uint8_t *image) {
 			count++;
 			int x = pos % 640;
 			int y = pos / 640;
-			for(int j = -5; j <= 5; j++) {
-				for(int k = -5; k <= 5; k++) {
-					if(j * j + k * k > 25) continue;
+			for(int j = -3; j <= 3; j++) {
+				for(int k = -3; k <= 3; k++) {
+					if(j * j + k * k > 9) continue;
 					int nx = x + j;
 					int ny = y + k;
 					if(nx < 0 || ny < 0 || nx >= 640 || ny >= 480) continue;
@@ -57,7 +56,7 @@ void floodFill(uint8_t *image) {
 				}
 			}
 		}
-		if(count < 0) {
+		if(count < 25) {
 			for(int j = 0; j < count; j++) image[list[j]] = 0;
 		}
 	}
@@ -130,12 +129,7 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	// Holding the last and current ball positions
 	*outx = moment10/area;
 	*outy = moment01/area;
-		
-	if(area < 50){//*outx < 1 || *outy < 1){
-		
-		return 0;
-		
-	}
+
 	//printf("Found marker at position: %d, %d\n", *outx, *outy);
 	
 	return 1;
