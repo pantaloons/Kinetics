@@ -15,6 +15,19 @@ int list[640 * 480];
 int qindex = 0;
 int lindex = 0;
 
+CvMoments* moments;
+IplImage* img2;
+IplImage* imgThreshed;
+IplImage* imgHSV;
+
+void markerInit(void)
+{
+	moments = (CvMoments*)malloc(sizeof(CvMoments));
+	img2 = cvCreateImageHeader(cvSize(640,480), 8, 3);
+	imgThreshed = cvCreateImage(cvGetSize(img2), 8, 1);
+	imgHSV = cvCreateImage(cvGetSize(img2), 8, 3);
+}
+
 void floodFill(uint8_t *image) {
 	memset(visited, 0, sizeof(visited));
 	qindex = 0;
@@ -35,6 +48,8 @@ void floodFill(uint8_t *image) {
 					int nx = x + j;
 					int ny = y + k;
 					if(nx < 0 || ny < 0 || nx >= 640 || ny >= 480) continue;
+		
+		
 					if(visited[nx + ny * 640] || image[nx + ny * 640] == 0) continue;
 					queue[qindex++] = nx + ny * 640;
 					list[lindex++] = nx + ny * 640;
@@ -48,21 +63,18 @@ void floodFill(uint8_t *image) {
 	}
 }
 
-IplImage* GetThresholdedImage(IplImage* img, int hue)
+void GetThresholdedImage(IplImage* img, int hue)
 {
 	// Convert the image into an HSV image
-	IplImage* imgHSV = cvCreateImage(cvGetSize(img), 8, 3);
+	
 	cvCvtColor(img, imgHSV, CV_RGB2HSV);
-
-
-	IplImage* imgThreshed = cvCreateImage(cvGetSize(img), 8, 1);
-
-
+	
 	// Values 20,100,100 to 30,255,255 working perfect for yellow at around 6pm
-	cvInRangeS(imgHSV, cvScalar(hue-3, 100, 100,1), cvScalar(hue+3, 200, 200,1), imgThreshed);
+	cvInRangeS(imgHSV, cvScalar(hue-5, 100, 100,1), cvScalar(hue+5, 200, 200,1), imgThreshed);
 	
 	
-	IplConvKernel* k = cvCreateStructuringElementEx(5,5,1,1,CV_SHAPE_ELLIPSE,NULL);
+	
+	IplConvKernel* k = cvCreateStructuringElementEx(3,3,1,1,CV_SHAPE_ELLIPSE,NULL);
 	cvErode(imgThreshed, imgThreshed, k, 1);
     cvReleaseStructuringElement(&k);
     
@@ -86,10 +98,6 @@ IplImage* GetThresholdedImage(IplImage* img, int hue)
 		}
 	}
 	pthread_mutex_unlock(&hsvMutex);
-
-	cvReleaseImage(&imgHSV);
-
-	return imgThreshed;
 }
 
 
@@ -104,20 +112,15 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	 * return 0 if it is not found, if it is found
 	 * return 1 and save the x and y position (center)
 	 * to outx, outy */
-	
-	//printf("Hue %d\n", rgbToHue2(rgb[0], rgb[1], rgb[2]));
-
-	
-	IplImage* img2=cvCreateImageHeader(cvSize(640,480), 8, 3);
 	cvSetData(img2, rgb, 640*3);
 	
 	// Holds the yellow thresholded image (yellow = white, rest = black)
-	IplImage* imgThresh = GetThresholdedImage(img2,hue);
+	GetThresholdedImage(img2,hue);
+	
 		
 	
 	// Calculate the mouments to estimate the position of the ball
-	CvMoments *moments = (CvMoments*)malloc(sizeof(CvMoments));
-	cvMoments(imgThresh, moments, 1);
+	cvMoments(imgThreshed, moments, 1);
 
 	// The actual moment values
 	double moment10 = cvGetSpatialMoment(moments, 1, 0);
@@ -127,11 +130,8 @@ int findMarker(int hue, uint8_t* rgb, int* outx, int* outy) {
 	// Holding the last and current ball positions
 	*outx = moment10/area;
 	*outy = moment01/area;
-	
-	//cvReleaseImage(&img2);
-	free(moments);
-	
-	if(*outx < 1 || *outy < 1){
+		
+	if(area < 50){//*outx < 1 || *outy < 1){
 		
 		return 0;
 		
