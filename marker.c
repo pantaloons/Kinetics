@@ -15,7 +15,6 @@ int list[640 * 480];
 int qindex = 0;
 int lindex = 0;
 
-<<<<<<< HEAD
 CvMoments* moments;
 IplImage* img2;
 IplImage* imgThreshed;
@@ -29,8 +28,6 @@ void markerInit(void)
 	imgHSV = cvCreateImage(cvGetSize(img2), 8, 3);
 }
 
-=======
->>>>>>> 194ebd31d2dba89a05dd04526f9f23c2ba8727ca
 void floodFill(uint8_t *image) {
 	memset(visited, 0, sizeof(visited));
 	qindex = 0;
@@ -51,6 +48,8 @@ void floodFill(uint8_t *image) {
 					int nx = x + j;
 					int ny = y + k;
 					if(nx < 0 || ny < 0 || nx >= 640 || ny >= 480) continue;
+		
+		
 					if(visited[nx + ny * 640] || image[nx + ny * 640] == 0) continue;
 					queue[qindex++] = nx + ny * 640;
 					list[lindex++] = nx + ny * 640;
@@ -79,7 +78,7 @@ void GetThresholdedImage(IplImage* img, int hue)
 	cvErode(imgThreshed, imgThreshed, k, 1);
     cvReleaseStructuringElement(&k);
     
-    //floodFill(imgThreshed->imageData);
+    floodFill(imgThreshed->imageData);
 	
 	pthread_mutex_lock(&hsvMutex);
 		
@@ -99,8 +98,6 @@ void GetThresholdedImage(IplImage* img, int hue)
 		}
 	}
 	pthread_mutex_unlock(&hsvMutex);
-
-	cvReleaseImage(&imgHSV);
 }
 
 
