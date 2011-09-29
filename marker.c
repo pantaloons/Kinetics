@@ -15,6 +15,7 @@ int list[640 * 480];
 int qindex = 0;
 int lindex = 0;
 
+<<<<<<< HEAD
 CvMoments* moments;
 IplImage* img2;
 IplImage* imgThreshed;
@@ -28,6 +29,8 @@ void markerInit(void)
 	imgHSV = cvCreateImage(cvGetSize(img2), 8, 3);
 }
 
+=======
+>>>>>>> 194ebd31d2dba89a05dd04526f9f23c2ba8727ca
 void floodFill(uint8_t *image) {
 	memset(visited, 0, sizeof(visited));
 	qindex = 0;
@@ -55,7 +58,7 @@ void floodFill(uint8_t *image) {
 				}
 			}
 		}
-		if(count < 15) {
+		if(count < 0) {
 			for(int j = 0; j < count; j++) image[list[j]] = 0;
 		}
 	}

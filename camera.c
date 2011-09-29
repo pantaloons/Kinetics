@@ -15,11 +15,6 @@ pthread_cond_t frameUpdateSignal = PTHREAD_COND_INITIALIZER;
 int depthUpdate;
 int rgbUpdate;
 
-/* 256 values for the 256 different hues we can track. */
-int prevMarkerX[256];
-int prevMarkerY[256];
-int foundPrev[256];
-
 /* The buffer is managed (written to) by libfreenect
  * rgbStage is a staging area for new frames, only the latest frame is staged
  * the buffer and staging area get swapped on a frame update, while the front and staging
@@ -147,27 +142,9 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbUpdate++;
 	
 	int rx, ry;
-	if(1) { 
-		if(findMarker(25, rgbStage, &rx, &ry)) {
-			if(foundPrev[25]) physicsLine(prevMarkerX[25], prevMarkerY[25], rx, ry);
-			prevMarkerX[25] = rx;
-			prevMarkerY[25] = ry;
-			foundPrev[25] = 1;
-		}
-		else {
-			foundPrev[25] = 0;
-		}
-		
-		if(findMarker(111, rgbStage, &rx, &ry)) {
-			if(foundPrev[111]) physicsErase(prevMarkerX[111], prevMarkerY[111], rx, ry);
-			prevMarkerX[111] = rx;
-			prevMarkerY[111] = ry;
-			foundPrev[111] = 1;
-		}
-		else {
-			foundPrev[223] = 0;
-		}
-	}	
+	if(findMarker(25, rgbStage, &rx, &ry)) physicsLine(rx, ry);
+	//if(findMarker(111, rgbStage, &rx, &ry)) physicsErase(rx, ry);
+
 	pthread_cond_signal(&frameUpdateSignal);
 	pthread_mutex_unlock(&rgbBufferMutex);
 }
