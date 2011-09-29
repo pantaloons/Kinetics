@@ -15,24 +15,6 @@ int list[640 * 480];
 int qindex = 0;
 int lindex = 0;
 
-int rgbToHue2(int ri, int gi, int bi) {
-	double r = ri / 255.0f;
-	double g = gi / 255.0f;
-	double b = bi / 255.0f;
-	double max = MAX(r, MAX(g, b));
-	double min = MIN(r, MIN(g, b));
-	double d = max - min;
-	double h = 0;
-	if(d < 1e-8) return h;
-	else {
-		if(max - r < 1e-8) h = (g - b) / d + (g < b ? 6 : 0);
-		else if(max - g < 1e-8) h = (b - r) / d + 2;
-		else if(max - b < 1e-8) h = (r - g) / d + 4;
-	}
-	h /= 6.0f;
-	return (int)(h * 255);
-}
-
 void floodFill(uint8_t *image) {
 	memset(visited, 0, sizeof(visited));
 	qindex = 0;
@@ -60,7 +42,7 @@ void floodFill(uint8_t *image) {
 				}
 			}
 		}
-		if(count < 15) {
+		if(count < 0) {
 			for(int j = 0; j < count; j++) image[list[j]] = 0;
 		}
 	}

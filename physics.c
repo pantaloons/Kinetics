@@ -11,19 +11,25 @@ extern pthread_mutex_t rgbBufferMutex;
 pthread_mutex_t paintBufferMutex;
 pthread_cond_t paintSignal = PTHREAD_COND_INITIALIZER;
 
-int *pixels, *lines;
+int *pixels;
 int drawCount;
 int frameRate = 1000/120; /* Milliseconds per frame */
+int inited = 0;
+
+#define EMPTY -1
+#define SAND 0
+#define WALL 1
+#define PLANT 2
+#define WATER 3
 
 void initialize() {
 	paintBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	renderBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	debugBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
 	pixels = malloc(640 * 480 * sizeof(int));
-	lines = malloc(640 * 480 * sizeof(int));
 	memset(pixels, -1, 640 * 480 * sizeof(int));
-	memset(lines, 0, 640 * 480 * sizeof(int));
 	drawCount = 0;
+	inited = 1;
 }
 
 void swapPhysicsBuffers() {
@@ -38,11 +44,25 @@ void move(int i, int j, int k) {
 	int l;
 	switch(pixels[i + j]) {
 		/* Sand propogation */
-        case 0:
-			if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == -1 || pixels[l = i + j + 640 + 1] == -1 || 
-			   pixels[l = i + j + 640 - 1] == -1 || pixels[l = i + j - 1] == -1 || pixels[l = i + j + 1] == -1)) {
-				pixels[l] = 0;
-				pixels[i + j] = -1;
+        case SAND:
+			if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == EMPTY || pixels[l = i + j + 640 + 1] == EMPTY || 
+			   pixels[l = i + j + 640 - 1] == EMPTY || pixels[l = i + j - 1] == EMPTY || pixels[l = i + j + 1] == EMPTY)) {
+				pixels[l] = SAND;
+				pixels[i + j] = EMPTY;
+			}
+            break;
+        case WATER:
+			if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == EMPTY || pixels[l = i + j + 640 + 1] == EMPTY || 
+			   pixels[l = i + j + 640 - 1] == EMPTY || pixels[l = i + j - 1] == EMPTY || pixels[l = i + j + 1] == EMPTY)) {
+				pixels[l] = WATER;
+				pixels[i + j] = EMPTY;
+			}
+			break;
+		case PLANT:
+            if(rand() % 100 >= 10) break;
+            if(pixels[l = (i - 640) + j] == WATER || pixels[l = i + 640 + j] == WATER ||
+			   pixels[l = i + 1 + j] == WATER || pixels[l = (i - 1) + j] == WATER) {
+                pixels[l] = PLANT;
 			}
             break;
 	}
@@ -51,10 +71,17 @@ void move(int i, int j, int k) {
 void update() {
 	/* Flow new particles down */
 	int k = 640 / 4;
-	for(int i = 0; i < 4; i++) {
+	for(int i = 0; i < 4; i+=2) {
 		for(int a = 1; a < 3; a++) {
 			for(int j = -10; j <= 10; j++) {
-				if(rand() % 10 < 1) pixels[(i * k + (k / 2)) + j] = 0;
+				if(rand() % 10 < 1) pixels[(i * k + (k / 2)) + j] = SAND;
+			}
+		}
+	}
+	for(int i = 1; i < 4; i+=2) {
+		for(int a = 1; a < 3; a++) {
+			for(int j = -10; j <= 10; j++) {
+				if(rand() % 10 < 1) pixels[(i * k + (k / 2)) + j] = WATER;
 			}
 		}
 	}
@@ -74,57 +101,58 @@ void update() {
 	}
 	
 	/* Correct for edges */
-	for(int i = 1; i < 640 - 1; i++)
-	{
-		pixels[i] = -1;
-		pixels[(480 - 1) * 640 + i] = -1;
+	for(int i = 1; i < 640 - 1; i++) {
+		pixels[i] = EMPTY;
+		pixels[(480 - 1) * 640 + i] = EMPTY;
 	}
 
-	for(int i = 1; i < 480 - 1; i++)
-	{
-		pixels[640 * i] = 1;
-		pixels[(640 * (i + 1)) - 1] = 1;
+	for(int i = 1; i < 480 - 1; i++) {
+		pixels[640 * i] = WALL;
+		pixels[(640 * (i + 1)) - 1] = WALL;
 	}
 }
 
-void physicsLine(int startx, int starty, int destx, int desty) {
-	for(int i = startx - 15; i <= startx + 15; i++) {
-		for(int j = starty - 15; j <= starty + 15; j++) {
-			if(i < 0 || i >= 640 || j < 0 || j >= 480) continue;
-			lines[j * 640 + i] = 1;
+void physicsLine(int startx, int starty) {
+	if(!inited) return;
+	for(int i = -15; i <= 15; i++) {
+		for(int j = -15; j <= 15; j++) {
+			if(startx + i < 0 || startx + i >= 640 || starty + j < 0 || starty + j >= 480) continue;
+			if(i * i + j * j > 15 * 15) continue;
+			pixels[(starty + j) * 640 + i + startx] = PLANT;
 		}
 	}
 }
 
-void physicsErase(int startx, int starty, int destx, int desty) {
-	for(int i = startx - 15; i <= startx + 15; i++) {
-		for(int j = starty - 15; j <= starty + 15; j++) {
-			if(i < 0 || i >= 640 || j < 0 || j >= 480) continue;
-			lines[j * 640 + i] = 0;
+void physicsErase(int startx, int starty) {
+	if(!inited) return;
+	for(int i = -15; i <= 15; i++) {
+		for(int j = -15; j <= 15; j++) {
+			if(startx + i < 0 || startx + i >= 640 || starty + j < 0 || starty + j >= 480) continue;
+			if(i * i + j * j > 15 * 15) continue;
+			pixels[(starty + j) * 640 + i + startx] = EMPTY;
 		}
 	}
 }
 
 void resetPhysics() {
 	memset(pixels, -1, 640 * 480 * sizeof(int));
-	memset(lines, 0, 640 * 480 * sizeof(int));
 	drawCount = 0;
 }
 
 unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	/* Update walls. At the moment we just remove and replace them */
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 1 && (!lines[i] && !walls[3*i])) pixels[i] = -1;
-		else if(pixels[i] == -1 && (lines[i] || walls[3*i])) {
-			pixels[i] = 1;
+		if(pixels[i] == WALL && !walls[3*i]) pixels[i] = EMPTY;
+		else if(pixels[i] == EMPTY && walls[3*i]) {
+			pixels[i] = WALL;
 		}
 	}
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 0 && (lines[i] || walls[3*i])) {
+		if((pixels[i] == SAND || pixels[i] == WATER) && walls[3*i]) {
 			int pos = i;
-			while(pos >= 0 && pixels[pos] != -1) pos -= 640;
-			if(pos >= 0) pixels[pos] = 0;
-			pixels[i] = 1;
+			while(pos >= 0 && pixels[pos] != EMPTY) pos -= 640;
+			if(pos >= 0) pixels[pos] = pixels[i];
+			pixels[i] = WALL;
 		}
 	}
 	/* Simulate sand */
@@ -138,7 +166,7 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 	
 	/* Render sand / walls on top of image */
 	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == 0) {
+		if(pixels[i] == SAND) {
 			paintBuffer[3*i+0] = 255; /* Gold colour */
 			paintBuffer[3*i+1] = 215;
 			paintBuffer[3*i+2] = 0;
@@ -146,23 +174,28 @@ unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
 			debugBuffer[3*i+1] = 215;
 			debugBuffer[3*i+2] = 0;
 		}
-		else if(lines[i]) {
-			paintBuffer[3*i+0] = 139; /* Gray colour */
-			paintBuffer[3*i+1] = 137;
+		else if(pixels[i] == WATER) {
+			paintBuffer[3*i+0] = 0; /* Blue colour */
+			paintBuffer[3*i+1] = 0;
 			paintBuffer[3*i+2] = 137;
-			debugBuffer[3*i+0] = 0; /* Gray colour */
+			debugBuffer[3*i+0] = 0; /* Blue colour */
+			debugBuffer[3*i+1] = 0;
+			debugBuffer[3*i+2] = 137;
+		}
+		else if(pixels[i] == PLANT) {
+			paintBuffer[3*i+0] = 0; /* Gray colour */
+			paintBuffer[3*i+1] = 137;
+			paintBuffer[3*i+2] = 0;
+			debugBuffer[3*i+0] = 0; /* Green colour */
 			debugBuffer[3*i+1] = 137;
 			debugBuffer[3*i+2] = 0;
 		}
-		else if(pixels[i] == 1) {
-			//paintBuffer[3*i+0] = 139; /* Gray colour */
-			//paintBuffer[3*i+1] = 137;
-			//paintBuffer[3*i+2] = 137;
+		else if(pixels[i] == WALL) {
 			debugBuffer[3*i+0] = 139; /* Gray colour */
 			debugBuffer[3*i+1] = 137;
 			debugBuffer[3*i+2] = 137;
 		}
-		else {
+		else { /* Empty */
 			debugBuffer[3*i+0] = 0; /* Black colour */
 			debugBuffer[3*i+1] = 0;
 			debugBuffer[3*i+2] = 0;

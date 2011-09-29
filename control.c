@@ -42,6 +42,7 @@ uint8_t* threshhold(IplImage* calibration, float near, float far) {
 	
 	cvSmooth(differenceImage, differenceImage, CV_MEDIAN, 5, 0, 0, 0);
 	
+	
 	IplConvKernel* k = cvCreateStructuringElementEx(2,2,1,1,CV_SHAPE_ELLIPSE,NULL);
 	//cvErode(differenceImage, differenceImage, k, 1);
     //
