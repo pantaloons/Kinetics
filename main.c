@@ -29,6 +29,8 @@ extern pthread_cond_t paintSignal, frameUpdateSignal;
 pthread_mutex_t wallBufferMutex;
 
 extern freenect_device* device;
+uint16_t initRegister = 0x00;
+uint16_t cameraRegister = 0x00;
 
 IplImage* calibration;
 uint8_t* wallBuffer = NULL;
@@ -67,6 +69,9 @@ int main(int argc, char** argv) {
 	pthread_mutex_unlock(&rgbBufferMutex);
 	swapRGBBuffers();
 	swapDepthBuffers();
+	
+	initRegister = read_cmos_register(device, 0x0106);
+	cameraRegister = initRegister;
 	
 	calibration = cvCreateImage(cvSize(640,480), 8, 3);
 	calibrate(near, far, calibration);
@@ -172,6 +177,13 @@ void keyboard(unsigned char key, int x, int y) {
 	}
 	else if(key == 'r') {
 		resetPhysics();
+	}
+	else if(key == 'c') {
+		 uint16_t r = read_cmos_register(device, 0x0106);
+		 cameraRegister = initRegister - cameraRegister;
+		 write_cmos_register(device, 0x0106, cameraRegister); // r & ~(1 << 14)); // r);
+		 //write_cmos_register(device, 0x0125, 0x2d); // r);
+		 //write_cmos_register(device, 0x8105, 0x07);
 	}
 	freenect_set_tilt_degs(device, freenect_angle);
 }
