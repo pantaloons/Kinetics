@@ -4,8 +4,6 @@ freenect_context *context;
 freenect_device *device;
 
 #define HISTORY_SIZE 10
-#define MARKERHMIN 53
-#define MARKERHMAX 60
 
 float t_gamma[2048];
 uint16_t t_gamma_i[2048];
@@ -140,10 +138,6 @@ void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 	rgbStage = rgb;
 
 	rgbUpdate++;
-	
-	int rx, ry;
-	if(findMarker(25, rgbStage, &rx, &ry)) physicsLine(rx, ry);
-	//if(findMarker(111, rgbStage, &rx, &ry)) physicsErase(rx, ry);
 
 	pthread_cond_signal(&frameUpdateSignal);
 	pthread_mutex_unlock(&rgbBufferMutex);

@@ -50,7 +50,6 @@ void renderFour();
 void (*paintFunc)(void) = &renderOne;
 
 int main(int argc, char** argv) {
-	markerInit();
 	if(initCamera()) {
 		printf("camera initialization failed!\n");
 		return 1;

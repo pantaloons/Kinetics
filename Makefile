@@ -4,7 +4,7 @@ LDFLAGS = -lm -lglut -lGLU -lGL -lcv -lhighgui -lfreenect -lcxcore
 
 all: kinetics
 
-kinetics: main.o camera.o physics.o calibration.o control.o marker.o
+kinetics: main.o camera.o physics.o calibration.o control.o
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 main.o: main.c camera.o physics.o calibration.o control.o
@@ -16,13 +16,10 @@ calibration.o: calibration.c camera.o
 control.o: control.c camera.o
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
-camera.o: camera.c physics.o marker.o
+camera.o: camera.c physics.o
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
 physics.o: physics.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-	
-marker.o: marker.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
 clean:

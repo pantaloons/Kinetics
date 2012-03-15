@@ -112,28 +112,6 @@ void update() {
 	}
 }
 
-void physicsLine(int startx, int starty) {
-	if(!inited) return;
-	for(int i = -15; i <= 15; i++) {
-		for(int j = -15; j <= 15; j++) {
-			if(startx + i < 0 || startx + i >= 640 || starty + j < 0 || starty + j >= 480) continue;
-			if(i * i + j * j > 15 * 15) continue;
-			pixels[(starty + j) * 640 + i + startx] = PLANT;
-		}
-	}
-}
-
-void physicsErase(int startx, int starty) {
-	if(!inited) return;
-	for(int i = -15; i <= 15; i++) {
-		for(int j = -15; j <= 15; j++) {
-			if(startx + i < 0 || startx + i >= 640 || starty + j < 0 || starty + j >= 480) continue;
-			if(i * i + j * j > 15 * 15) continue;
-			pixels[(starty + j) * 640 + i + startx] = EMPTY;
-		}
-	}
-}
-
 void resetPhysics() {
 	memset(pixels, -1, 640 * 480 * sizeof(int));
 	drawCount = 0;
