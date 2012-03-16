@@ -2,6 +2,7 @@
 
 #define FRAMERATE 8.33333
 
+extern uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
 extern uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
 extern int colorPos;
 
@@ -15,8 +16,6 @@ int physicsPos = 0;
 pthread_mutex_t physicsMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t physicsSignal = PTHREAD_COND_INITIALIZER;
 int physicsUpdate = 0;
-
-uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
 
 enum {
 	EMPTY = 0,

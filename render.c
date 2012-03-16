@@ -4,9 +4,9 @@
 static void renderOne();
 static void renderFour();
 
-pthread_mutex_t physicsMutex;
-pthread_cond_t physicsSignal;
-int physicsUpdate;
+extern pthread_mutex_t physicsMutex;
+extern pthread_cond_t physicsSignal;
+extern int physicsUpdate;
 
 static GLuint paintTexture;
 static uint_fast8_t renderBuffer[GAME_WIDTH][GAME_HEIGHT];

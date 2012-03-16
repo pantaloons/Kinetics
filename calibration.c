@@ -1,6 +1,6 @@
 #include "calibration.h"
 
-uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
+uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT] = {};
 
 void updateModel() {
 	/*static IplImage *color = 0, *depth = 0;
