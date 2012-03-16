@@ -2,8 +2,8 @@
 
 #define FRAMERATE 8.33333
 
-uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
-int colorPos = 0;
+extern uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+extern int colorPos;
 
 /*
  * Physics buffer -- is drawn to by the physics engine. This is double
@@ -19,12 +19,12 @@ int physicsUpdate = 0;
 uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
 
 enum {
-	EMPTY,
+	EMPTY = 0,
 	SAND,
 	WALL
 };
 
-static int pixels[GAME_WIDTH][GAME_HEIGHT] = {EMPTY};
+static int pixels[GAME_WIDTH][GAME_HEIGHT] = {};
 static int drawCount = 0;
 
 void swapPhysicsBuffers() {
@@ -37,7 +37,7 @@ void move(int x, int y) {
 	static int dy[] = {1, 1,  1,  0, 0};
 	switch(pixels[x][y]) {
 		/* Sand propogation */
-        case SAND:
+		case SAND:
 			if(rand() % 100 < 95) {
 				for(int i = 0; i < 5; i++) {
 					if(pixels[x + dx[i]][y + dy[i]] == EMPTY) {

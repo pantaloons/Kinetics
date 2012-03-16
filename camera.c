@@ -3,8 +3,6 @@
 static freenect_context *context;
 static freenect_device *device;
 
-static uint16_t gamma[2048];
-
 pthread_mutex_t kinectMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
 
@@ -20,23 +18,11 @@ int colorPos = 0;
 int colorUpdate = 0;
 
 /* Two depth buffers. One that is available (the front), one that is swapped out. */
-uint_fast8_t depthBufs[2][GAME_WIDTH][GAME_HEIGHT][3];
+uint_fast16_t depthBufs[2][GAME_WIDTH][GAME_HEIGHT];
 int depthPos = 0;
 int depthUpdate = 0;
 
-bool initCamera() {
-	/* Black magic... this converts kinect depth values to real distance */
-	for (int i = 0; i < 2048; i++) { 
-			const float k1 = 1.1863; 
-			const float k2 = 2842.5; 
-			const float k3 = 0.1236; 
-			const float depth = k3 * tanf(i/k2 + k1); 
-
-			float v = i/2048.0;
-			v = powf(v, 3) * 6;
-			gamma[i] = v * 6 * 256;
-	}
-	
+bool initCamera() {	
 	if(freenect_init(&context, NULL) < 0) {
 		printf("freenect_init failed.\n");
 		return false;
@@ -74,14 +60,40 @@ void swapDepthBuffers() {
 	pthread_mutex_unlock(&kinectMutex);
 }
 
+static void colorFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
+	(void)rgb, (void)timestamp;
+	pthread_mutex_lock(&kinectMutex);
+
+	/* Swap back buffers */
+	int tmp = colorPosR[2];
+	colorPosR[2] = colorPosR[1];
+	freenect_set_video_buffer(dev, &colorBufs[colorPosR[2]]);
+	colorPosR[1] = tmp;
+	
+	colorUpdate++;
+	pthread_cond_signal(&kinectSignal);
+	pthread_mutex_unlock(&kinectMutex);
+}
+
+static void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
+	(void)dev, (void)timestamp;
+	uint16_t *depth = (uint16_t*)v_depth;
+	pthread_mutex_lock(&kinectMutex);
+	memcpy(depthBufs[(depthPos + 1) % 2], depth, sizeof depthBufs[0]);
+	depthUpdate++;
+	pthread_cond_signal(&kinectSignal);
+	pthread_mutex_unlock(&kinectMutex);
+}
+
 void *cameraLoop(void *arg) {
+	(void)arg;
 	freenect_set_tilt_degs(device, 0);
 	freenect_set_led(device, LED_RED);
 	freenect_set_depth_callback(device, depthFunc);
-	freenect_set_video_callback(device, rgbFunc);
+	freenect_set_video_callback(device, colorFunc);
 	freenect_set_video_mode(device, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
 	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
-	freenect_set_video_buffer(device, rgbBuffer);
+	freenect_set_video_buffer(device, &colorBufs[2]);
 	freenect_set_log_level(context, FREENECT_LOG_WARNING);
 
 	freenect_start_depth(device);
@@ -95,70 +107,4 @@ void *cameraLoop(void *arg) {
 	freenect_shutdown(context);
 
 	return NULL;
-}
-
-static void colorFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
-	pthread_mutex_lock(&kinectMutex);
-
-	/* Swap back buffers */
-	int tmp = colorPos[2];
-	colorPosR[2] = colorPosR[1];
-	freenect_set_video_buffer(dev, &colorBufs[colorPosR[2]]);
-	colorPosR[1] = tmp;
-	
-	colorUpdate++;
-	pthread_cond_signal(&kinectSignal);
-	pthread_mutex_unlock(&kinectMutex);
-}
-
-static void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
-	uint16_t *depth = (uint16_t*)v_depth;
-
-	pthread_mutex_lock(&kinectMutex);
-	for(int i = 0; i < GAME_WIDTH * GAME_HEIGHT; i++) {
-		depthStage[i] = depth[i];
-		int pval = t_gamma_i[depth[i]];
-		
-		int lb = pval & 0xff;
-		switch (pval >> 8) {
-			case 0:
-				depthImageStage[3*i+0] = 255;
-				depthImageStage[3*i+1] = 255 - lb;
-				depthImageStage[3*i+2] = 255 - lb;
-				break;
-			case 1:
-				depthImageStage[3*i+0] = 255;
-				depthImageStage[3*i+1] = lb;
-				depthImageStage[3*i+2] = 0;
-				break;
-			case 2:
-				depthImageStage[3*i+0] = 255 - lb;
-				depthImageStage[3*i+1] = 255;
-				depthImageStage[3*i+2] = 0;
-				break;
-			case 3:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 255;
-				depthImageStage[3*i+2] = lb;
-				break;
-			case 4:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 255 - lb;
-				depthImageStage[3*i+2] = 255;
-				break;
-			case 5:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 0;
-				depthImageStage[3*i+2] = 255 - lb;
-				break;
-			default:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 0;
-				depthImageStage[3*i+2] = 0;
-				break;
-		}
-	}
-	depthUpdate++;
-	pthread_cond_signal(&kinectSignal);
-	pthread_mutex_unlock(&kinectMutex);
 }
