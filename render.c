@@ -9,7 +9,7 @@ extern pthread_cond_t physicsSignal;
 extern int physicsUpdate;
 
 static GLuint paintTexture;
-static uint_fast8_t renderBuffer[GAME_WIDTH][GAME_HEIGHT];
+static uint8_t renderBuffer[GAME_WIDTH][GAME_HEIGHT];
 static void (*paintFunc)(void) = &renderOne;
 
 static void initScene() {

@@ -12,7 +12,7 @@ pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
  * a swap. This keeps fresh frames available for the user but will drop unused ones
  * too. ColorPos[0..2] is the position of the front, fetch, and back frames.
  */
-uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+uint8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
 static int colorPosR[3] = {0, 1, 2};
 int colorPos = 0;
 int colorUpdate = 0;
