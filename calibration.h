@@ -1,8 +1,11 @@
-#include "camera.h"
+/**
+ * Update the color and depth models to account for a new
+ * reading.
+ */
+void updateModel(int colorIndex, int depthIndex) {
 
 /**
- * Return a pixel depth buffer representing an initial
- * baseline camera calibration to be differenced against
- * in future.
+ * Updates black and white bitmask of solids thresholded against
+ * the calibration model.
  */
-void calibrate(float near, float far, IplImage* result);
+void threshhold(int colorIndex, int depthIndex);

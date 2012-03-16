@@ -1,53 +1,45 @@
 #include "camera.h"
 
-freenect_context *context;
-freenect_device *device;
+static freenect_context *context;
+static freenect_device *device;
 
-#define HISTORY_SIZE 10
+static uint16_t gamma[2048];
 
-float t_gamma[2048];
-uint16_t t_gamma_i[2048];
+pthread_mutex_t kinectMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
 
-pthread_mutex_t rgbBufferMutex;
-pthread_cond_t frameUpdateSignal = PTHREAD_COND_INITIALIZER;
-int depthUpdate;
-int rgbUpdate;
-
-/* The buffer is managed (written to) by libfreenect
- * rgbStage is a staging area for new frames, only the latest frame is staged
- * the buffer and staging area get swapped on a frame update, while the front and staging
- * area get swappe on a render (front is the rendering buffer) */
-uint8_t *rgbBuffer, *rgbStage, *rgbFront;
-/*
- * As above, there is no back buffer because libfreenect uses an internal depth buffer
+/* Three color buffers. One that is available (the front), one that is fetched,
+ * and one that is written to by the kinect. We swap fetched and kinect buffers
+ * when kinect posts a new frame, and front and fetch buffers when user requests
+ * a swap. This keeps fresh frames available for the user but will drop unused ones
+ * too. ColorPos[0..2] is the position of the front, fetch, and back frames.
  */
-uint16_t *depthStage, *depthFront;
+uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+static int colorPosR[3] = {0, 1, 2};
+int colorPos = 0;
+int colorUpdate = 0;
 
-/*
- * Some debugging buffers for depth imaging
- */
-uint8_t *depthImageStage, *depthImageFront;
+/* Two depth buffers. One that is available (the front), one that is swapped out. */
+uint_fast8_t depthBufs[2][GAME_WIDTH][GAME_HEIGHT][3];
+int depthPos = 0;
+int depthUpdate = 0;
 
-int initCamera() {
+bool initCamera() {
 	/* Black magic... this converts kinect depth values to real distance */
 	for (int i = 0; i < 2048; i++) { 
 			const float k1 = 1.1863; 
 			const float k2 = 2842.5; 
 			const float k3 = 0.1236; 
 			const float depth = k3 * tanf(i/k2 + k1); 
-			t_gamma[i] = depth; 
 
 			float v = i/2048.0;
 			v = powf(v, 3) * 6;
-			t_gamma_i[i] = v * 6 * 256;
+			gamma[i] = v * 6 * 256;
 	}
 	
-	depthUpdate = 0;
-	rgbUpdate = 0;
-	
 	if(freenect_init(&context, NULL) < 0) {
-		printf("freenect_init() failed\n");
-		return 1;
+		printf("freenect_init failed.\n");
+		return false;
 	}
 
 	freenect_set_log_level(context, FREENECT_LOG_DEBUG);
@@ -55,53 +47,31 @@ int initCamera() {
 
 	int devices = freenect_num_devices(context);
 	printf("Number of devices found: %d\n", devices);
-	if(devices < 1) return 1;
+	if(devices < 1) return false;
 
 	if(freenect_open_device(context, &device, 0) < 0) {
 		printf("Could not open device\n");
-		return 1;
+		return false;
 	}
 	
-	rgbBuffer = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
-	rgbStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
-	rgbFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
-	
-	depthStage = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
-	depthFront = (uint16_t*)malloc(640 * 480 * sizeof(uint16_t));
-	
-	depthImageStage = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
-	depthImageFront = (uint8_t*)malloc(640 * 480 * 3 * sizeof(uint8_t));
-
-	return 0;
+	return true;
 }
 
-void swapRGBBuffers() {
-	pthread_mutex_lock(&rgbBufferMutex);
-	uint8_t *tmp;
-	tmp = rgbFront;
-	rgbFront = rgbStage;
-	rgbStage = tmp;
-	rgbUpdate = 0;
-	pthread_mutex_unlock(&rgbBufferMutex);
+void swapColorBuffers() {
+	pthread_mutex_lock(&kinectMutex);
+	int tmp = colorPosR[0];
+	colorPosR[0] = colorPosR[1];
+	colorPosR[1] = tmp;
+	colorPos = colorPosR[0];
+	colorUpdate = 0;
+	pthread_mutex_unlock(&kinectMutex);
 }
 
 void swapDepthBuffers() {
-	pthread_mutex_lock(&rgbBufferMutex);
-	uint16_t *tmp;
-	tmp = depthFront;
-	depthFront = depthStage;
-	depthStage = tmp;
+	pthread_mutex_lock(&kinectMutex);
+	depthPos = (depthPos + 1) % 2;
 	depthUpdate = 0;
-	pthread_mutex_unlock(&rgbBufferMutex);
-}
-
-void swapDepthImageBuffers() {
-	pthread_mutex_lock(&rgbBufferMutex);
-	uint8_t *tmp;
-	tmp = depthImageFront;
-	depthImageFront = depthImageStage;
-	depthImageStage = tmp;
-	pthread_mutex_unlock(&rgbBufferMutex);
+	pthread_mutex_unlock(&kinectMutex);
 }
 
 void *cameraLoop(void *arg) {
@@ -117,7 +87,6 @@ void *cameraLoop(void *arg) {
 	freenect_start_depth(device);
 	freenect_start_video(device);
 	
-	int accelCount = 0;
 	while(freenect_process_events(context) >= 0) ;
 
 	freenect_stop_depth(device);
@@ -128,26 +97,25 @@ void *cameraLoop(void *arg) {
 	return NULL;
 }
 
-void rgbFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
-	pthread_mutex_lock(&rgbBufferMutex);
+static void colorFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
+	pthread_mutex_lock(&kinectMutex);
 
-	/* Swap buffers */
-	assert(rgbBuffer == rgb);
-	rgbBuffer = rgbStage;
-	freenect_set_video_buffer(dev, rgbBuffer);
-	rgbStage = rgb;
-
-	rgbUpdate++;
-
-	pthread_cond_signal(&frameUpdateSignal);
-	pthread_mutex_unlock(&rgbBufferMutex);
+	/* Swap back buffers */
+	int tmp = colorPos[2];
+	colorPosR[2] = colorPosR[1];
+	freenect_set_video_buffer(dev, &colorBufs[colorPosR[2]]);
+	colorPosR[1] = tmp;
+	
+	colorUpdate++;
+	pthread_cond_signal(&kinectSignal);
+	pthread_mutex_unlock(&kinectMutex);
 }
 
-void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
+static void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 	uint16_t *depth = (uint16_t*)v_depth;
 
-	pthread_mutex_lock(&rgbBufferMutex);
-	for(int i = 0; i < 640 * 480; i++) {
+	pthread_mutex_lock(&kinectMutex);
+	for(int i = 0; i < GAME_WIDTH * GAME_HEIGHT; i++) {
 		depthStage[i] = depth[i];
 		int pval = t_gamma_i[depth[i]];
 		
@@ -191,45 +159,6 @@ void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
 		}
 	}
 	depthUpdate++;
-	pthread_cond_signal(&frameUpdateSignal);
-	pthread_mutex_unlock(&rgbBufferMutex);
-}
-
-IplImage *cvGetDepth() {
-	static IplImage *image = 0;
-	if (!image) image = cvCreateImageHeader(cvSize(640,480), 16, 1);
-	pthread_mutex_lock(&rgbBufferMutex);
-	cvSetData(image, depthFront, 640*2);
-	pthread_mutex_unlock(&rgbBufferMutex);
-	return image;
-}
-
-IplImage *cvGetRGB() {
-	static IplImage *image = 0;
-	if (!image) image = cvCreateImageHeader(cvSize(640,480), 8, 3);
-	pthread_mutex_lock(&rgbBufferMutex);
-	cvSetData(image, rgbFront, 640*3);
-	pthread_mutex_unlock(&rgbBufferMutex);
-	return image;
-}
-
-/**
- * Given a pixel colour, rgb (0-255), compute the hue (0-360).
- */
-int rgbToHue(int ri, int gi, int bi) {
-	double r = ri / 255.0f;
-	double g = gi / 255.0f;
-	double b = bi / 255.0f;
-	double max = MAX(r, MAX(g, b));
-	double min = MIN(r, MIN(g, b));
-	double d = max - min;
-	double h = 0;
-	if(!d) return h;
-	else {
-		if(max == r) h = (g - b) / d + (g < b ? 6 : 0);
-		else if(max == g) h = (b - r) / d + 2;
-		else if(max == b) h = (r - g) / d + 4;
-	}
-	h / 6.0f;
-	return (int)(h * 255);
+	pthread_cond_signal(&kinectSignal);
+	pthread_mutex_unlock(&kinectMutex);
 }

@@ -1,188 +1,151 @@
 #include "physics.h"
 
+#define FRAMERATE 8.33333
+
+uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+int colorPos = 0;
+
 /*
- * Paint buffer is draw to by the physics engine, swapped with the render buffer
- * which is read by opengl to draw to screen
+ * Physics buffer -- is drawn to by the physics engine. This is double
+ * buffered, so that the rendering thread can retrieve frames easily.
  */
-uint8_t *paintBuffer, *renderBuffer, *debugBuffer;
+uint_fast8_t physicsBuffer[2][GAME_WIDTH][GAME_HEIGHT][3];
+int physicsPos = 0;
+
+pthread_mutex_t physicsMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t physicsSignal = PTHREAD_COND_INITIALIZER;
 int physicsUpdate = 0;
 
-extern pthread_mutex_t rgbBufferMutex;
-pthread_mutex_t paintBufferMutex;
-pthread_cond_t paintSignal = PTHREAD_COND_INITIALIZER;
+uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
 
-int *pixels;
-int drawCount;
-int frameRate = 1000/120; /* Milliseconds per frame */
-int inited = 0;
+enum {
+	EMPTY,
+	SAND,
+	WALL
+};
 
-#define EMPTY -1
-#define SAND 0
-#define WALL 1
-#define PLANT 2
-#define WATER 3
-
-void initialize() {
-	paintBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
-	renderBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
-	debugBuffer = malloc(640 * 480 * 3 * sizeof(uint8_t));
-	pixels = malloc(640 * 480 * sizeof(int));
-	memset(pixels, -1, 640 * 480 * sizeof(int));
-	drawCount = 0;
-	inited = 1;
-}
+static int pixels[GAME_WIDTH][GAME_HEIGHT] = {EMPTY};
+static int drawCount = 0;
 
 void swapPhysicsBuffers() {
-	uint8_t *tmp;
-	tmp = paintBuffer;
-	paintBuffer = renderBuffer;
-	renderBuffer = tmp;
+	physicsPos = (physicsPos + 1) % 2;
 	physicsUpdate = 0;
 }
 
-void move(int i, int j, int k) {
-	int l;
-	switch(pixels[i + j]) {
+void move(int x, int y) {
+	static int dx[] = {0, 1, -1, -1, 1};
+	static int dy[] = {1, 1,  1,  0, 0};
+	switch(pixels[x][y]) {
 		/* Sand propogation */
         case SAND:
-			if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == EMPTY || pixels[l = i + j + 640 + 1] == EMPTY || 
-			   pixels[l = i + j + 640 - 1] == EMPTY || pixels[l = i + j - 1] == EMPTY || pixels[l = i + j + 1] == EMPTY)) {
-				pixels[l] = SAND;
-				pixels[i + j] = EMPTY;
-			}
-            break;
-        case WATER:
-			if(rand() % 100 < 95 && (pixels[l = i + 640 + j] == EMPTY || pixels[l = i + j + 640 + 1] == EMPTY || 
-			   pixels[l = i + j + 640 - 1] == EMPTY || pixels[l = i + j - 1] == EMPTY || pixels[l = i + j + 1] == EMPTY)) {
-				pixels[l] = WATER;
-				pixels[i + j] = EMPTY;
+			if(rand() % 100 < 95) {
+				for(int i = 0; i < 5; i++) {
+					if(pixels[x + dx[i]][y + dy[i]] == EMPTY) {
+						pixels[x + dx[i]][y + dy[i]] = SAND;
+						pixels[x][y] = EMPTY;
+					}
+				}
 			}
 			break;
-		case PLANT:
-            if(rand() % 100 >= 10) break;
-            if(pixels[l = (i - 640) + j] == WATER || pixels[l = i + 640 + j] == WATER ||
-			   pixels[l = i + 1 + j] == WATER || pixels[l = (i - 1) + j] == WATER) {
-                pixels[l] = PLANT;
-			}
-            break;
+		default:
+			break;
 	}
 }
 
 void update() {
 	/* Flow new particles down */
-	int k = 640 / 4;
-	for(int i = 0; i < 4; i+=2) {
+	int k = GAME_WIDTH / 4;
+	for(int i = 0; i < 4; i++) {
 		for(int a = 1; a < 3; a++) {
 			for(int j = -10; j <= 10; j++) {
-				if(rand() % 10 < 1) pixels[(i * k + (k / 2)) + j] = SAND;
-			}
-		}
-	}
-	for(int i = 1; i < 4; i+=2) {
-		for(int a = 1; a < 3; a++) {
-			for(int j = -10; j <= 10; j++) {
-				if(rand() % 10 < 1) pixels[(i * k + (k / 2)) + j] = WATER;
+				if(!(rand() % 10)) pixels[i * k + (k / 2) + j][0] = SAND;
 			}
 		}
 	}
 	/* Update existing particles */
 	drawCount++;
 	if(drawCount & 1) {
-		for(int i = 480 - 1; i >= 0; i--) {
-			int pos = i * 640;
-			for(int j = 0; j < 640 - 1; j++) move(pos, j, i);
+		for(int i = GAME_HEIGHT - 1; i >= 0; i--) {
+			for(int j = 1; j < GAME_WIDTH - 1; j++) move(j, i);
 		}
 	}
 	else {
-		for(int i = 480 - 1; i >= 0; i--) {
-			int pos = i * 640;
-			for(int j = 640 - 1; j >= 0; j--) move(pos, j, i);
+		for(int i = GAME_HEIGHT - 1; i >= 0; i--) {
+			for(int j = GAME_WIDTH - 1; j > 0; j--) move(j, i);
 		}
 	}
 	
 	/* Correct for edges */
-	for(int i = 1; i < 640 - 1; i++) {
-		pixels[i] = EMPTY;
-		pixels[(480 - 1) * 640 + i] = EMPTY;
+	for(int i = 1; i < GAME_WIDTH - 1; i++) {
+		pixels[i][0] = EMPTY;
+		pixels[i][GAME_HEIGHT - 1] = EMPTY;
 	}
 
-	for(int i = 1; i < 480 - 1; i++) {
-		pixels[640 * i] = WALL;
-		pixels[(640 * (i + 1)) - 1] = WALL;
+	for(int i = 1; i < GAME_HEIGHT - 1; i++) {
+		pixels[0][i] = WALL;
+		pixels[GAME_WIDTH - 1][i] = WALL;
 	}
 }
 
 void resetPhysics() {
-	memset(pixels, -1, 640 * 480 * sizeof(int));
+	memset(pixels, -1, sizeof pixels);
 	drawCount = 0;
 }
 
-unsigned long simulate(unsigned long delta, uint8_t *walls, uint8_t *rgb) {
+unsigned long simulate(unsigned long delta) {
 	/* Update walls. At the moment we just remove and replace them */
-	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == WALL && !walls[3*i]) pixels[i] = EMPTY;
-		else if(pixels[i] == EMPTY && walls[3*i]) {
-			pixels[i] = WALL;
+	for(int i = 0; i < GAME_WIDTH; i++) {
+		for(int j = 0; j < GAME_HEIGHT; j++) {
+			if(pixels[i][j] == WALL && !walls[i][j]) pixels[i][j] = EMPTY;
+			else if(pixels[i][j] == EMPTY && walls[i][j]) pixels[i][j] = WALL;
 		}
 	}
-	for(int i = 0; i < 640 * 480; i++) {
-		if((pixels[i] == SAND || pixels[i] == WATER) && walls[3*i]) {
-			int pos = i;
-			while(pos >= 0 && pixels[pos] != EMPTY) pos -= 640;
-			if(pos >= 0) pixels[pos] = pixels[i];
-			pixels[i] = WALL;
+	for(int i = 0; i < GAME_WIDTH; i++) {
+		for(int j = 0; j < GAME_HEIGHT; j++) {
+			if(pixels[i][j] == SAND && walls[i][j]) {
+				int pos = j;
+				while(pos >= 0 && pixels[i][pos] != EMPTY) pos--;
+				if(pos >= 0) pixels[i][pos] = pixels[i][j];
+				pixels[i][j] = WALL;
+			}
 		}
 	}
+	
 	/* Simulate sand */
-	while(delta >= frameRate) {
+	while(delta >= FRAMERATE) {
 		update();
-		delta -= frameRate;
+		delta -= FRAMERATE;
 	}
 	
-	pthread_mutex_lock(&paintBufferMutex);
-	memcpy(paintBuffer, rgb, 640 * 480 * 3 * sizeof(uint8_t));
+	pthread_mutex_lock(&physicsMutex);
+	memcpy(physicsBuffer[physicsPos], colorBufs[colorPos], sizeof physicsBuffer[physicsPos]);
 	
-	/* Render sand / walls on top of image */
-	for(int i = 0; i < 640 * 480; i++) {
-		if(pixels[i] == SAND) {
-			paintBuffer[3*i+0] = 255; /* Gold colour */
-			paintBuffer[3*i+1] = 215;
-			paintBuffer[3*i+2] = 0;
-			debugBuffer[3*i+0] = 255; /* Gold colour */
-			debugBuffer[3*i+1] = 215;
-			debugBuffer[3*i+2] = 0;
-		}
-		else if(pixels[i] == WATER) {
-			paintBuffer[3*i+0] = 0; /* Blue colour */
-			paintBuffer[3*i+1] = 0;
-			paintBuffer[3*i+2] = 137;
-			debugBuffer[3*i+0] = 0; /* Blue colour */
-			debugBuffer[3*i+1] = 0;
-			debugBuffer[3*i+2] = 137;
-		}
-		else if(pixels[i] == PLANT) {
-			paintBuffer[3*i+0] = 0; /* Gray colour */
-			paintBuffer[3*i+1] = 137;
-			paintBuffer[3*i+2] = 0;
-			debugBuffer[3*i+0] = 0; /* Green colour */
-			debugBuffer[3*i+1] = 137;
-			debugBuffer[3*i+2] = 0;
-		}
-		else if(pixels[i] == WALL) {
-			debugBuffer[3*i+0] = 139; /* Gray colour */
-			debugBuffer[3*i+1] = 137;
-			debugBuffer[3*i+2] = 137;
-		}
-		else { /* Empty */
-			debugBuffer[3*i+0] = 0; /* Black colour */
-			debugBuffer[3*i+1] = 0;
-			debugBuffer[3*i+2] = 0;
+	/* Render sand / walls on top of buffer */
+	for(int i = 0; i < GAME_WIDTH; i++) {
+		for(int j = 0; j < GAME_HEIGHT; j++) {
+			switch(pixels[i][j]) {
+				case SAND:
+					physicsBuffer[physicsPos][i][j][0] = 255;
+					physicsBuffer[physicsPos][i][j][1] = 215;
+					physicsBuffer[physicsPos][i][j][2] = 0;
+					break;
+				case WALL:
+					physicsBuffer[physicsPos][i][j][0] = 139;
+					physicsBuffer[physicsPos][i][j][1] = 137;
+					physicsBuffer[physicsPos][i][j][2] = 137;
+					break;
+				default:
+					physicsBuffer[physicsPos][i][j][0] = 0;
+					physicsBuffer[physicsPos][i][j][1] = 0;
+					physicsBuffer[physicsPos][i][j][2] = 0;
+					break;
+			}
 		}
 	}
 	
 	physicsUpdate++;
-	pthread_cond_signal(&paintSignal);
-	pthread_mutex_unlock(&paintBufferMutex);
+	pthread_cond_signal(&physicsSignal);
+	pthread_mutex_unlock(&physicsMutex);
 	
 	return delta;
 }

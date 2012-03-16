@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+
 #include <GL/glut.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
@@ -16,279 +17,78 @@
 #include "calibration.h"
 #include "control.h"
 
-pthread_t runThread;
-pthread_t cameraThread;
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 480
+#define GAME_WIDTH 640
+#define GAME_HEIGHT 480
 
-GLuint paintTexture;
+pthread_mutex_t kinectMutex, wallMutex;
+pthread_cond_t kinectSignal;
+int colorUpdate, depthUpdate;
 
-extern uint8_t *renderBuffer, *rgbFront, *depthImageFront, *debugBuffer, *hsvDebug;
-extern volatile int rgbUpdate, depthUpdate, physicsUpdate;
-
-extern pthread_mutex_t paintBufferMutex, rgbBufferMutex, hsvMutex;
-extern pthread_cond_t paintSignal, frameUpdateSignal;
-pthread_mutex_t wallBufferMutex;
-
-extern freenect_device* device;
-uint16_t initRegister = 0x00;
-uint16_t cameraRegister = 0x00;
-
-IplImage* calibration;
-uint8_t* wallBuffer = NULL;
-
-float near = 1.0f;
-float far = 100.0f;
-
-int freenect_angle = 0;
-int renderWidth = 640;
-int renderHeight = 480;
-
-void renderLoop(int argc, char** argv);
-void *runLoop(void *arg);
-
-void renderOne();
-void renderFour();
-void (*paintFunc)(void) = &renderOne;
-
-int main(int argc, char** argv) {
-	if(initCamera()) {
-		printf("camera initialization failed!\n");
-		return 1;
-	}
-	
-	hsvDebug = malloc(640 * 480 * 3 * sizeof(uint8_t));
-	
-	int result = pthread_create(&cameraThread, NULL, cameraLoop, NULL);
-	if(result) {
-		printf("pthread_create() failed\n");
-		return 1;
-	}
-	pthread_mutex_lock(&rgbBufferMutex);
-	while(!rgbUpdate || !depthUpdate) {
-		pthread_cond_wait(&frameUpdateSignal, &rgbBufferMutex); /* We wait for the camera to initialize itself */
-	}
-	pthread_mutex_unlock(&rgbBufferMutex);
-	swapRGBBuffers();
-	swapDepthBuffers();
-	
-	initRegister = read_cmos_register(device, 0x0106);
-	cameraRegister = initRegister;
-	
-	calibration = cvCreateImage(cvSize(640,480), 8, 3);
-	calibrate(near, far, calibration);
-	
-	initialize();
-	controlInit();
-
-	
-	result = pthread_create(&runThread, NULL, runLoop, NULL);
-	if(result) {
-		printf("pthread_create() failed\n");
-		return 1;
-	}
-	
-	renderLoop(argc, argv);
-
-	return 0;
-}
-
+/*
+ * Get the elapsed time in milliseconds.
+ */
 unsigned long getTime() {
 	struct timeval time;
 	gettimeofday(&time, NULL);
 	return (time.tv_sec * 1000 + time.tv_usec/1000.0) + 0.5;
 }
 
+/*
+ * Main engine loop. Repeatedly query for new color/depth frames
+ * and send them to threshholding and then physics. Render thread
+ * will pick frames up off the physics image producing queue.
+ */
 void *runLoop(void *arg) {
 	unsigned long lastTime = getTime();
 	while(1) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
 		
-		if(rgbUpdate) swapRGBBuffers();
-		if(depthUpdate) {
-			swapDepthBuffers();
-			swapDepthImageBuffers();
+		if(colorUpdate) swapColorBuffers();
+		if(depthUpdate) swapDepthBuffers();
+
+		updateModel(colorPos, depthPos);
+		threshhold(colorPos, depthPos);
+
+		lastTime = curTime - simulate(delta);
+	}
+}
+
+int main() {
+	if(!initCamera()) {
+		error("Camera initialization failed.\n");
+		return EXIT_FAILURE;
+	}
+	pthread_t cameraThread;
+	if(pthread_create(&cameraThread, NULL, cameraLoop, NULL)) {
+		printf("pthread_create failed.\n");
+		return EXIT_FAILURE;
+	}
+	
+	/* We wait two frames for the camera to initialize itself. */
+	for(int i = 0; i < 2; i++) {
+		pthread_mutex_lock(&kinectMutex);
+		while(!colorUpdate || !depthUpdate) {
+			pthread_cond_wait(&kinectSignal, &kinectMutex);
 		}
+		pthread_mutex_unlock(&kinectMutex);
 		
-		uint8_t *walls = threshhold(calibration, near, far);
-		pthread_mutex_lock(&wallBufferMutex);
-		wallBuffer = walls;
-		pthread_mutex_unlock(&wallBufferMutex);
-
-		lastTime = curTime - simulate(delta, walls, rgbFront);
+		swapColorBuffers();
+		swapDepthBuffers();
 	}
+	
+	updateModel();
+	initControl();
+
+	pthread_t runThread;
+	if(pthread_create(&runThread, NULL, runLoop, NULL)) {
+		printf("pthread_create failed.\n");
+		return EXIT_FAILURE;
+	}
+	
+	renderLoop();
+	
+	return EXIT_SUCCESS;
 }
-
-void initScene() {
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClearDepth(1.0);
-	glDepthFunc(GL_LESS);
-	glDepthMask(GL_FALSE);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_BLEND);
-	glDisable(GL_ALPHA_TEST);
-	glEnable(GL_TEXTURE_2D);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glShadeModel(GL_FLAT);
-
-	glGenTextures(1, &paintTexture);
-	glBindTexture(GL_TEXTURE_2D, paintTexture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-}
-
-void resize(int width, int height) {
-	glViewport(0, 0, width, height);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0, renderWidth, renderHeight, 0, -1.0f, 1.0f);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-}
-
-void keyboard(unsigned char key, int x, int y) {
-	if(key == 'f') calibrate(near, far, calibration);
-	else if(key == '1') {
-		paintFunc = &renderOne;
-		renderWidth = 640;
-		renderHeight = 480;
-		glutReshapeWindow(640, 480);
-		glutPostRedisplay();
-	}
-	else if(key == '4') {
-		paintFunc = &renderFour;
-		renderWidth = 1280;
-		renderHeight = 960;
-		glutReshapeWindow(1280, 960);
-		glutPostRedisplay();
-	}
-	else if(key == 'w') {
-		freenect_angle++;
-		if (freenect_angle > 30) {
-			freenect_angle = 30;
-		}
-	}
-	else if(key == 's') {
-		freenect_angle = 0;
-	}
-	else if(key == 'x') {
-		freenect_angle--;
-		if (freenect_angle < -30) {
-			freenect_angle = -30;
-		}
-	}
-	else if(key == 'r') {
-		resetPhysics();
-	}
-	else if(key == 'c') {
-		 uint16_t r = read_cmos_register(device, 0x0106);
-		 //cameraRegister = initRegister - cameraRegister;
-		 write_cmos_register(device, 0x0106, r & ~(1 << 14) & ~(1 << 13));
-		 //write_cmos_register(device, 0x0106, r | 2 | (1 << 12) | (1 << 13) | (1 << 9) || (1 << 6) || (1 << 3)); // r);
-		 //write_cmos_register(device, 0x0125, 0x0005); // r);
-		 //write_cmos_register(device, 0x8105, 0x07);
-	}
-	freenect_set_tilt_degs(device, freenect_angle);
-}
-
-void render() {
-	(*paintFunc)();
-}
-
-void renderFour() {
-	pthread_mutex_lock(&paintBufferMutex);
-	
-	while(!physicsUpdate) {
-		pthread_cond_wait(&paintSignal, &paintBufferMutex);
-	}
-	swapPhysicsBuffers();
-	
-	pthread_mutex_unlock(&paintBufferMutex);
-	
-	glBindTexture(GL_TEXTURE_2D, paintTexture);
-	
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	glBegin(GL_TRIANGLE_FAN);
-	glTexCoord2f(0, 0); glVertex3f(0,0,0);
-	glTexCoord2f(1, 0); glVertex3f(640,0,0);
-	glTexCoord2f(1, 1); glVertex3f(640,480,0);
-	glTexCoord2f(0, 1); glVertex3f(0,480,0);
-	glEnd();
-	
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, depthImageFront);
-	glBegin(GL_TRIANGLE_FAN);
-	glTexCoord2f(0, 0); glVertex3f(640,0,0);
-	glTexCoord2f(1, 0); glVertex3f(1280,0,0);
-	glTexCoord2f(1, 1); glVertex3f(1280,480,0);
-	glTexCoord2f(0, 1); glVertex3f(640,480,0);
-	glEnd();
-
-	//pthread_mutex_lock(&wallBufferMutex);
-	//glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, wallBuffer);
-	//pthread_mutex_unlock(&wallBufferMutex);
-	pthread_mutex_lock(&hsvMutex);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, hsvDebug);
-	pthread_mutex_unlock(&hsvMutex);
-	glBegin(GL_TRIANGLE_FAN);
-	glTexCoord2f(0, 0); glVertex3f(0,480,0);
-	glTexCoord2f(1, 0); glVertex3f(640,480,0);
-	glTexCoord2f(1, 1); glVertex3f(640,960,0);
-	glTexCoord2f(0, 1); glVertex3f(0,960,0);
-	glEnd();
-	
-	
-	pthread_mutex_lock(&paintBufferMutex);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, debugBuffer);
-	pthread_mutex_unlock(&paintBufferMutex);
-	glBegin(GL_TRIANGLE_FAN);
-	glTexCoord2f(0, 0); glVertex3f(640,480,0);
-	glTexCoord2f(1, 0); glVertex3f(1280,480,0);
-	glTexCoord2f(1, 1); glVertex3f(1280,960,0);
-	glTexCoord2f(0, 1); glVertex3f(640,960,0);
-	glEnd();
-	
-	glutSwapBuffers();
-}
-
-void renderOne() {
-	pthread_mutex_lock(&paintBufferMutex);
-	
-	while(!physicsUpdate) {
-		pthread_cond_wait(&paintSignal, &paintBufferMutex);
-	}
-	swapPhysicsBuffers();
-	
-	pthread_mutex_unlock(&paintBufferMutex);
-	
-	glBindTexture(GL_TEXTURE_2D, paintTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, renderBuffer);
-
-	glBegin(GL_TRIANGLE_FAN);
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-	glTexCoord2f(0, 0); glVertex3f(0,0,0);
-	glTexCoord2f(1, 0); glVertex3f(640,0,0);
-	glTexCoord2f(1, 1); glVertex3f(640,480,0);
-	glTexCoord2f(0, 1); glVertex3f(0,480,0);
-	glEnd();
-
-	glutSwapBuffers();
-}
-
-void renderLoop(int argc, char** argv) {
-	glutInit(&argc, argv);
-	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_ALPHA | GLUT_DEPTH);
-	glutInitWindowSize(640, 480);
-	glutInitWindowPosition(0, 0);
-	
-	glutCreateWindow("Kinetics");
-	
-	glutDisplayFunc(&render);
-	glutIdleFunc(&render);
-	glutReshapeFunc(&resize);
-	glutKeyboardFunc(&keyboard);
-
-	initScene();
-
-	glutMainLoop();
-}
-
