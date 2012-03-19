@@ -1,11 +1,10 @@
-#include <math.h>
 #include <stdbool.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
-//#include "libfreenect.h"
-//#include "libfreenect_sync.h"
+#include "libfreenect.h"
 
 bool initCamera();
 void swapColorBuffers();

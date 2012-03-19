@@ -3,8 +3,6 @@
 static freenect_context *context;
 static freenect_device *device;
 
-static uint16_t gamma[2048];
-
 pthread_mutex_t kinectMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
 
@@ -15,30 +13,17 @@ pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
  * too. ColorPos[0..2] is the position of the front, fetch, and back frames within
  * the color buffers.
  */
-uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+uint8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
 static int colorPosR[3] = {0, 1, 2};
 int colorPos = 0;
 int colorUpdate = 0;
 
-/* Two depth buffers. One that is available (the front), one that is swapped out.
- * depthPos is the position of the front within the depth buffers. */
-uint_fast8_t depthBufs[2][GAME_WIDTH][GAME_HEIGHT][3];
+/* Two depth buffers. One that is available (the front), one that is swapped out. */
+uint_fast16_t depthBufs[2][GAME_WIDTH][GAME_HEIGHT];
 int depthPos = 0;
 int depthUpdate = 0;
 
-bool initCamera() {
-	/* Black magic... this converts kinect depth values to real distance */
-	for (int i = 0; i < 2048; i++) { 
-			const float k1 = 1.1863; 
-			const float k2 = 2842.5; 
-			const float k3 = 0.1236; 
-			const float depth = k3 * tanf(i/k2 + k1); 
-
-			float v = i/2048.0;
-			v = powf(v, 3) * 6;
-			gamma[i] = v * 6 * 256;
-	}
-	
+bool initCamera() {	
 	if(freenect_init(&context, NULL) < 0) {
 		printf("freenect_init failed.\n");
 		return false;
@@ -100,10 +85,11 @@ void *cameraLoop(void *arg) {
 }
 
 static void colorFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
+	(void)rgb, (void)timestamp;
 	pthread_mutex_lock(&kinectMutex);
 
 	/* Swap back buffers */
-	int tmp = colorPos[2];
+	int tmp = colorPosR[2];
 	colorPosR[2] = colorPosR[1];
 	freenect_set_video_buffer(dev, &colorBufs[colorPosR[2]]);
 	colorPosR[1] = tmp;
@@ -114,53 +100,35 @@ static void colorFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {
 }
 
 static void depthFunc(freenect_device *dev, void *v_depth, uint32_t timestamp) {
+	(void)dev, (void)timestamp;
 	uint16_t *depth = (uint16_t*)v_depth;
-
 	pthread_mutex_lock(&kinectMutex);
-	for(int i = 0; i < GAME_WIDTH * GAME_HEIGHT; i++) {
-		depthStage[i] = depth[i];
-		int pval = t_gamma_i[depth[i]];
-		
-		int lb = pval & 0xff;
-		switch (pval >> 8) {
-			case 0:
-				depthImageStage[3*i+0] = 255;
-				depthImageStage[3*i+1] = 255 - lb;
-				depthImageStage[3*i+2] = 255 - lb;
-				break;
-			case 1:
-				depthImageStage[3*i+0] = 255;
-				depthImageStage[3*i+1] = lb;
-				depthImageStage[3*i+2] = 0;
-				break;
-			case 2:
-				depthImageStage[3*i+0] = 255 - lb;
-				depthImageStage[3*i+1] = 255;
-				depthImageStage[3*i+2] = 0;
-				break;
-			case 3:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 255;
-				depthImageStage[3*i+2] = lb;
-				break;
-			case 4:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 255 - lb;
-				depthImageStage[3*i+2] = 255;
-				break;
-			case 5:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 0;
-				depthImageStage[3*i+2] = 255 - lb;
-				break;
-			default:
-				depthImageStage[3*i+0] = 0;
-				depthImageStage[3*i+1] = 0;
-				depthImageStage[3*i+2] = 0;
-				break;
-		}
-	}
+	memcpy(depthBufs[(depthPos + 1) % 2], depth, sizeof depthBufs[0]);
 	depthUpdate++;
 	pthread_cond_signal(&kinectSignal);
 	pthread_mutex_unlock(&kinectMutex);
+}
+
+void *cameraLoop(void *arg) {
+	(void)arg;
+	freenect_set_tilt_degs(device, 0);
+	freenect_set_led(device, LED_RED);
+	freenect_set_depth_callback(device, depthFunc);
+	freenect_set_video_callback(device, colorFunc);
+	freenect_set_video_mode(device, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
+	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
+	freenect_set_video_buffer(device, &colorBufs[2]);
+	freenect_set_log_level(context, FREENECT_LOG_WARNING);
+
+	freenect_start_depth(device);
+	freenect_start_video(device);
+	
+	while(freenect_process_events(context) >= 0) ;
+
+	freenect_stop_depth(device);
+	freenect_stop_video(device);
+	freenect_close_device(device);
+	freenect_shutdown(context);
+
+	return NULL;
 }

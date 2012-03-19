@@ -2,29 +2,28 @@
 
 #define FRAMERATE 8.33333
 
-uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
-int colorPos;
+extern uint8_t walls[GAME_WIDTH][GAME_HEIGHT];
+extern uint8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+extern int colorPos;
 
 /*
  * Physics buffer -- is drawn to by the physics engine. This is double
  * buffered, so that the rendering thread can retrieve frames easily.
  */
-uint_fast8_t physicsBuffer[2][GAME_WIDTH][GAME_HEIGHT][3];
+uint8_t physicsBuffer[2][GAME_WIDTH][GAME_HEIGHT][3];
 int physicsPos = 0;
 
 pthread_mutex_t physicsMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t physicsSignal = PTHREAD_COND_INITIALIZER;
 int physicsUpdate = 0;
 
-uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
-
 enum {
-	EMPTY,
+	EMPTY = 0,
 	SAND,
 	WALL
 };
 
-static int pixels[GAME_WIDTH][GAME_HEIGHT] = {EMPTY};
+static int pixels[GAME_WIDTH][GAME_HEIGHT] = {};
 static int drawCount = 0;
 
 void resetPhysics() {
@@ -42,7 +41,7 @@ static void move(int x, int y) {
 	static int dy[] = {1, 1,  1,  0, 0};
 	switch(pixels[x][y]) {
 		/* Sand propogation */
-        case SAND:
+		case SAND:
 			if(rand() % 100 < 95) {
 				for(int i = 0; i < 5; i++) {
 					if(pixels[x + dx[i]][y + dy[i]] == EMPTY) {

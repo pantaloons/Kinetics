@@ -4,27 +4,22 @@
 #include <assert.h>
 #include <math.h>
 
-#include <GL/glut.h>
-#include <GL/gl.h>
-#include <GL/glu.h>
 #include <pthread.h>
 #include <sys/time.h>
 
-#include "libfreenect.h"
-
 #include "camera.h"
+#include "render.h"
 #include "physics.h"
 #include "calibration.h"
-#include "control.h"
 
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
 #define GAME_WIDTH 640
 #define GAME_HEIGHT 480
 
-pthread_mutex_t kinectMutex, wallMutex;
-pthread_cond_t kinectSignal;
-int colorUpdate, depthUpdate;
+extern pthread_mutex_t kinectMutex, wallMutex;
+extern pthread_cond_t kinectSignal;
+extern int colorUpdate, depthUpdate;
 
 /*
  * Get the elapsed time in milliseconds.
@@ -40,7 +35,8 @@ static unsigned long getTime() {
  * and send them to threshholding and then physics. Render thread
  * will pick frames up off the physics image producing queue.
  */
-static void *runLoop(void *arg) {
+void *runLoop(void *arg) {
+	(void)arg;
 	unsigned long lastTime = getTime();
 	while(1) {
 		unsigned long curTime = getTime();
@@ -49,8 +45,8 @@ static void *runLoop(void *arg) {
 		if(colorUpdate) swapColorBuffers();
 		if(depthUpdate) swapDepthBuffers();
 
-		updateModel(colorPos, depthPos);
-		threshhold(colorPos, depthPos);
+		updateModel();
+		threshhold();
 
 		lastTime = curTime - simulate(delta);
 	}
@@ -58,12 +54,12 @@ static void *runLoop(void *arg) {
 
 int main() {
 	if(!initCamera()) {
-		error("Camera initialization failed.\n");
+		fprintf(stderr, "Camera initialization failed.\n");
 		return EXIT_FAILURE;
 	}
 	pthread_t cameraThread;
 	if(pthread_create(&cameraThread, NULL, cameraLoop, NULL)) {
-		printf("pthread_create failed.\n");
+		fprintf(stderr, "pthread_create failed.\n");
 		return EXIT_FAILURE;
 	}
 	
@@ -80,11 +76,10 @@ int main() {
 	}
 	
 	updateModel();
-	initControl();
 
 	pthread_t runThread;
 	if(pthread_create(&runThread, NULL, runLoop, NULL)) {
-		printf("pthread_create failed.\n");
+		fprintf(stderr, "pthread_create failed.\n");
 		return EXIT_FAILURE;
 	}
 	

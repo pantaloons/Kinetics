@@ -1,14 +1,15 @@
 #include "render.h"
+#include "physics.h"
 
 static void renderOne();
 static void renderFour();
 
-pthread_mutex_t glMutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t physicsSignal;
-int physicsUpdate;
+extern pthread_mutex_t physicsMutex;
+extern pthread_cond_t physicsSignal;
+extern int physicsUpdate;
 
 static GLuint paintTexture;
-static uint_fast8_t renderBuffer[GAME_WIDTH][GAME_HEIGHT];
+static uint8_t renderBuffer[GAME_WIDTH][GAME_HEIGHT];
 static void (*paintFunc)(void) = &renderOne;
 
 static void initScene() {
@@ -39,8 +40,9 @@ static void resize(int width, int height) {
 }
 
 static void keyboard(unsigned char key, int x, int y) {
-	if(key == 'f') calibrate();
-	else if(key == '1') {
+	(void)x, (void)y;
+	/* if(key == 'f') calibrate(); */
+	if(key == '1') {
 		paintFunc = &renderOne;
 		glutPostRedisplay();
 	}
@@ -56,7 +58,7 @@ static void render() {
 }
 
 void renderLoop() {
-	glutInit((int[]{0}, NULL);
+	glutInit((int[]){0}, NULL);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
 	glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
 	
@@ -95,14 +97,14 @@ static void renderOne() {
 }
 
 static void renderFour() {
-	pthread_mutex_lock(&paintBufferMutex);
+	pthread_mutex_lock(&physicsMutex);
 	
 	while(!physicsUpdate) {
-		pthread_cond_wait(&paintSignal, &paintBufferMutex);
+		pthread_cond_wait(&physicsSignal, &physicsMutex);
 	}
 	swapPhysicsBuffers();
 	
-	pthread_mutex_unlock(&paintBufferMutex);
+	pthread_mutex_unlock(&physicsMutex);
 	
 	glBindTexture(GL_TEXTURE_2D, paintTexture);
 	
@@ -115,6 +117,7 @@ static void renderFour() {
 	glTexCoord2f(0, 1); glVertex3f(0,WINDOW_HEIGHT,0);
 	glEnd();
 	
+	/*
 	glTexImage2D(GL_TEXTURE_2D, 0, 3, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, depthImageFront);
 	glBegin(GL_TRIANGLE_FAN);
 	glTexCoord2f(0, 0); glVertex3f(WINDOW_WIDTH,0,0);
@@ -122,11 +125,12 @@ static void renderFour() {
 	glTexCoord2f(1, 1); glVertex3f(1280,WINDOW_HEIGHT,0);
 	glTexCoord2f(0, 1); glVertex3f(WINDOW_WIDTH,WINDOW_HEIGHT,0);
 	glEnd();
-
+	*/
+	
 	//pthread_mutex_lock(&wallBufferMutex);
 	//glTexImage2D(GL_TEXTURE_2D, 0, 3, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, wallBuffer);
 	//pthread_mutex_unlock(&wallBufferMutex);
-	pthread_mutex_lock(&hsvMutex);
+	/*pthread_mutex_lock(&hsvMutex);
 	glTexImage2D(GL_TEXTURE_2D, 0, 3, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, hsvDebug);
 	pthread_mutex_unlock(&hsvMutex);
 	glBegin(GL_TRIANGLE_FAN);
@@ -134,9 +138,9 @@ static void renderFour() {
 	glTexCoord2f(1, 0); glVertex3f(WINDOW_WIDTH,WINDOW_HEIGHT,0);
 	glTexCoord2f(1, 1); glVertex3f(WINDOW_WIDTH,960,0);
 	glTexCoord2f(0, 1); glVertex3f(0,960,0);
-	glEnd();
+	glEnd();*/
 	
-	
+	/*
 	pthread_mutex_lock(&paintBufferMutex);
 	glTexImage2D(GL_TEXTURE_2D, 0, 3, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, debugBuffer);
 	pthread_mutex_unlock(&paintBufferMutex);
@@ -146,6 +150,67 @@ static void renderFour() {
 	glTexCoord2f(1, 1); glVertex3f(1280,960,0);
 	glTexCoord2f(0, 1); glVertex3f(WINDOW_WIDTH,960,0);
 	glEnd();
+	*/
 	
 	glutSwapBuffers();
+}
+
+void someDepthFunc() {
+	static uint16_t gamma[2048];
+	static bool doGamma = true;
+	if(doGamma) {
+		/* Black magic... this converts kinect depth values to real distance */
+		for (int i = 0; i < 2048; i++) {
+				float v = i/2048.0;
+				v = powf(v, 3) * 6;
+				gamma[i] = v * 6 * 256;
+		}
+		doGamma = false;
+	}
+	/* todo: use gamma */
+	(void)gamma;
+	/*
+	for(int i = 0; i < GAME_WIDTH * GAME_HEIGHT; i++) {
+		depthStage[i] = depth[i];
+		int pval = t_gamma_i[depth[i]];
+		
+		int lb = pval & 0xff;
+		switch (pval >> 8) {
+			case 0:
+				depthImageStage[3*i+0] = 255;
+				depthImageStage[3*i+1] = 255 - lb;
+				depthImageStage[3*i+2] = 255 - lb;
+				break;
+			case 1:
+				depthImageStage[3*i+0] = 255;
+				depthImageStage[3*i+1] = lb;
+				depthImageStage[3*i+2] = 0;
+				break;
+			case 2:
+				depthImageStage[3*i+0] = 255 - lb;
+				depthImageStage[3*i+1] = 255;
+				depthImageStage[3*i+2] = 0;
+				break;
+			case 3:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 255;
+				depthImageStage[3*i+2] = lb;
+				break;
+			case 4:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 255 - lb;
+				depthImageStage[3*i+2] = 255;
+				break;
+			case 5:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 0;
+				depthImageStage[3*i+2] = 255 - lb;
+				break;
+			default:
+				depthImageStage[3*i+0] = 0;
+				depthImageStage[3*i+1] = 0;
+				depthImageStage[3*i+2] = 0;
+				break;
+		}
+	}*/
 }
