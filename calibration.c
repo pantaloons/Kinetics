@@ -2,7 +2,7 @@
 
 uint_fast8_t walls[GAME_WIDTH][GAME_HEIGHT];
 
-void updateModel(int colorIndex, int depthIndex) {
+void updateModel() {
 	/*
 	static IplImage *color = 0, *depth = 0;
 	if (!image) {
@@ -14,6 +14,6 @@ void updateModel(int colorIndex, int depthIndex) {
 	cvCopy(rgb, result, NULL);*/
 }
 
-void threshhold(int colorIndex, int depthIndex) {
+void threshhold() {
 
 }

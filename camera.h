@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "libfreenect.h"
+//#include "libfreenect.h"
 //#include "libfreenect_sync.h"
 
 bool initCamera();

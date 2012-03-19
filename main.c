@@ -29,7 +29,7 @@ int colorUpdate, depthUpdate;
 /*
  * Get the elapsed time in milliseconds.
  */
-unsigned long getTime() {
+static unsigned long getTime() {
 	struct timeval time;
 	gettimeofday(&time, NULL);
 	return (time.tv_sec * 1000 + time.tv_usec/1000.0) + 0.5;
@@ -40,7 +40,7 @@ unsigned long getTime() {
  * and send them to threshholding and then physics. Render thread
  * will pick frames up off the physics image producing queue.
  */
-void *runLoop(void *arg) {
+static void *runLoop(void *arg) {
 	unsigned long lastTime = getTime();
 	while(1) {
 		unsigned long curTime = getTime();

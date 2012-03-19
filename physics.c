@@ -3,7 +3,7 @@
 #define FRAMERATE 8.33333
 
 uint_fast8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
-int colorPos = 0;
+int colorPos;
 
 /*
  * Physics buffer -- is drawn to by the physics engine. This is double
@@ -27,12 +27,17 @@ enum {
 static int pixels[GAME_WIDTH][GAME_HEIGHT] = {EMPTY};
 static int drawCount = 0;
 
+void resetPhysics() {
+	memset(pixels, -1, sizeof pixels);
+	drawCount = 0;
+}
+
 void swapPhysicsBuffers() {
 	physicsPos = (physicsPos + 1) % 2;
 	physicsUpdate = 0;
 }
 
-void move(int x, int y) {
+static void move(int x, int y) {
 	static int dx[] = {0, 1, -1, -1, 1};
 	static int dy[] = {1, 1,  1,  0, 0};
 	switch(pixels[x][y]) {
@@ -52,7 +57,7 @@ void move(int x, int y) {
 	}
 }
 
-void update() {
+static void update() {
 	/* Flow new particles down */
 	int k = GAME_WIDTH / 4;
 	for(int i = 0; i < 4; i++) {
@@ -85,11 +90,6 @@ void update() {
 		pixels[0][i] = WALL;
 		pixels[GAME_WIDTH - 1][i] = WALL;
 	}
-}
-
-void resetPhysics() {
-	memset(pixels, -1, sizeof pixels);
-	drawCount = 0;
 }
 
 unsigned long simulate(unsigned long delta) {
@@ -125,19 +125,12 @@ unsigned long simulate(unsigned long delta) {
 		for(int j = 0; j < GAME_HEIGHT; j++) {
 			switch(pixels[i][j]) {
 				case SAND:
-					physicsBuffer[physicsPos][i][j][0] = 255;
-					physicsBuffer[physicsPos][i][j][1] = 215;
-					physicsBuffer[physicsPos][i][j][2] = 0;
+					physicsBuffer[physicsPos][i][j] = {255, 215, 0};
 					break;
 				case WALL:
-					physicsBuffer[physicsPos][i][j][0] = 139;
-					physicsBuffer[physicsPos][i][j][1] = 137;
-					physicsBuffer[physicsPos][i][j][2] = 137;
+					physicsBuffer[physicsPos][i][j] = {139, 137, 137};
 					break;
 				default:
-					physicsBuffer[physicsPos][i][j][0] = 0;
-					physicsBuffer[physicsPos][i][j][1] = 0;
-					physicsBuffer[physicsPos][i][j][2] = 0;
 					break;
 			}
 		}

@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O4 -std=c99 -isystem/usr/local/include/libfreenect -DGAME_WIDTH=640 -DGAME_HEIGHT=480
+CFLAGS = -O3 -std=c99 -isystem/usr/local/include/libfreenect -DGAME_WIDTH=640 -DGAME_HEIGHT=480
 LDFLAGS = -lm -lglut -lGLU -lGL -lcv -lhighgui -lfreenect -lcxcore
 
 all: kinetics
