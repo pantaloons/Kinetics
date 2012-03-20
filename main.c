@@ -45,7 +45,6 @@ void *runLoop(void *arg) {
 		if(colorUpdate) swapColorBuffers();
 		if(depthUpdate) swapDepthBuffers();
 
-		updateModel();
 		threshhold();
 
 		lastTime = curTime - simulate(delta);
@@ -53,6 +52,7 @@ void *runLoop(void *arg) {
 }
 
 int main() {
+	srand(time(NULL));
 	if(!initCamera()) {
 		fprintf(stderr, "Camera initialization failed.\n");
 		return EXIT_FAILURE;
@@ -75,7 +75,7 @@ int main() {
 		swapDepthBuffers();
 	}
 	
-	updateModel();
+	createModel();
 
 	pthread_t runThread;
 	if(pthread_create(&runThread, NULL, runLoop, NULL)) {

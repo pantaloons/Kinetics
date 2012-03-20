@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -O2 -std=c99 -Wall -Werror -Wextra -isystem/usr/local/include/libfreenect -DGAME_WIDTH=640 -DGAME_HEIGHT=480 -DWINDOW_WIDTH=640 -DWINDOW_HEIGHT=480 -g
-LDFLAGS = -lm -lglut -lGLU -lGL -lcv -lhighgui -lfreenect -lcxcore -g
+CFLAGS = -O2 -g -std=c99 -Wall -Werror -Wextra -isystem/usr/local/include/libfreenect -DGAME_WIDTH=640 -DGAME_HEIGHT=480 -DWINDOW_WIDTH=640 -DWINDOW_HEIGHT=480 -g
+LDFLAGS = -g -lpthread -lm -lglut -lGLU -lGL -lcv -lcvaux -lhighgui -lfreenect -lcxcore -g
 
 all: kinetics
 

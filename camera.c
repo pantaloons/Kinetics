@@ -13,17 +13,17 @@ pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
  * too. ColorPos[0..2] is the position of the front, fetch, and back frames within
  * the color buffers.
  */
-uint8_t colorBufs[3][GAME_WIDTH][GAME_HEIGHT][3];
+uint8_t colorBufs[3][GAME_HEIGHT][GAME_WIDTH][3];
 static int colorPosR[3] = {0, 1, 2};
 int colorPos = 0;
 int colorUpdate = 0;
 
 /* Two depth buffers. One that is available (the front), one that is swapped out. */
-uint_fast16_t depthBufs[2][GAME_WIDTH][GAME_HEIGHT];
+uint16_t depthBufs[2][GAME_HEIGHT][GAME_WIDTH];
 int depthPos = 0;
 int depthUpdate = 0;
 
-bool initCamera() {	
+bool initCamera() {
 	if(freenect_init(&context, NULL) < 0) {
 		printf("freenect_init failed.\n");
 		return false;
@@ -37,7 +37,7 @@ bool initCamera() {
 	if(devices < 1) return false;
 
 	if(freenect_open_device(context, &device, 0) < 0) {
-		printf("Could not open device\n");
+		printf("Could not open device.\n");
 		return false;
 	}
 	
@@ -59,29 +59,6 @@ void swapDepthBuffers() {
 	depthPos = (depthPos + 1) % 2;
 	depthUpdate = 0;
 	pthread_mutex_unlock(&kinectMutex);
-}
-
-void *cameraLoop(void *arg) {
-	freenect_set_tilt_degs(device, 0);
-	freenect_set_led(device, LED_RED);
-	freenect_set_depth_callback(device, depthFunc);
-	freenect_set_video_callback(device, rgbFunc);
-	freenect_set_video_mode(device, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
-	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
-	freenect_set_video_buffer(device, rgbBuffer);
-	freenect_set_log_level(context, FREENECT_LOG_WARNING);
-
-	freenect_start_depth(device);
-	freenect_start_video(device);
-	
-	while(freenect_process_events(context) >= 0) ;
-
-	freenect_stop_depth(device);
-	freenect_stop_video(device);
-	freenect_close_device(device);
-	freenect_shutdown(context);
-
-	return NULL;
 }
 
 static void colorFunc(freenect_device *dev, void *rgb, uint32_t timestamp) {

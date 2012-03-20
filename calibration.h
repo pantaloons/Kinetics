@@ -1,6 +1,13 @@
 #include <inttypes.h>
 
 #include "opencv/cv.h"
+#include "opencv/cvaux.h"
+#include "opencv/highgui.h"
+
+/**
+ * Create the color and depth models.
+ */
+void createModel();
 
 /**
  * Update the color and depth models to account for a new
