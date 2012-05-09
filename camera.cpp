@@ -1,4 +1,4 @@
-#include "camera.h"
+#include "camera.hpp"
 
 static freenect_context *context;
 static freenect_device *device;

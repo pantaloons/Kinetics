@@ -1,8 +1,6 @@
 #include <inttypes.h>
 
-#include "opencv/cv.h"
-#include "opencv/cvaux.h"
-#include "opencv/highgui.h"
+#include "opencv2/opencv.hpp"
 
 /**
  * Create the color and depth models.
@@ -20,3 +18,8 @@ void updateModel();
  * the calibration model.
  */
 void threshhold();
+
+/**
+ * Reset the model and start calibration period from.
+ */
+void resetModel();

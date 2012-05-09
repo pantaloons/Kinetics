@@ -1,4 +1,4 @@
-#include "physics.h"
+#include "physics.hpp"
 
 #define FRAMERATE 8.333
 
@@ -124,16 +124,16 @@ unsigned long simulate(unsigned long delta) {
 	/* Render sand / walls on top of buffer */
 	for(int i = 0; i < GAME_HEIGHT; i++) {
 		for(int j = 0; j < GAME_WIDTH; j++) {
+			if(!walls[i][j]) {
+					physicsBuffer[(physicsPos + 1) % 2][i][j][0] = 0;
+					physicsBuffer[(physicsPos + 1) % 2][i][j][1] = 0;
+					physicsBuffer[(physicsPos + 1) % 2][i][j][2] = 0;
+			}
 			switch(pixels[i][j]) {
 				case SAND:
 					physicsBuffer[(physicsPos + 1) % 2][i][j][0] = 255;
 					physicsBuffer[(physicsPos + 1) % 2][i][j][1] = 215;
 					physicsBuffer[(physicsPos + 1) % 2][i][j][2] = 0;
-					break;
-				case WALL:
-					physicsBuffer[(physicsPos + 1) % 2][i][j][0] = 139;
-					physicsBuffer[(physicsPos + 1) % 2][i][j][1] = 137;
-					physicsBuffer[(physicsPos + 1) % 2][i][j][2] = 137;
 					break;
 				default:
 					break;

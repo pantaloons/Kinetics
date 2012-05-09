@@ -1,6 +1,6 @@
-#include "render.h"
-#include "physics.h"
-#include "calibration.h"
+#include "render.hpp"
+#include "physics.hpp"
+#include "calibration.hpp"
 
 static void renderOne();
 static void renderFour();
@@ -56,7 +56,7 @@ static void keyboard(unsigned char key, int x, int y) {
 		glutPostRedisplay();
 	}
 	else if(key == 'r') resetPhysics();
-	else if(key == 'f') updateModel();
+	else if(key == 'f') resetModel();
 }
 
 static void render() {

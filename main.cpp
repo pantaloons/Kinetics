@@ -1,16 +1,16 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cassert>
+#include <cmath>
 
 #include <pthread.h>
 #include <sys/time.h>
 
-#include "camera.h"
-#include "render.h"
-#include "physics.h"
-#include "calibration.h"
+#include "camera.hpp"
+#include "render.hpp"
+#include "physics.hpp"
+#include "calibration.hpp"
 
 #define WINDOW_WIDTH 640
 #define WINDOW_HEIGHT 480
@@ -42,13 +42,17 @@ void *runLoop(void *arg) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
 		
-		if(colorUpdate) swapColorBuffers();
+		if(colorUpdate) {
+			swapColorBuffers();
+			updateModel();
+		}
 		if(depthUpdate) swapDepthBuffers();
 
 		threshhold();
 
 		lastTime = curTime - simulate(delta);
 	}
+	return NULL;
 }
 
 int main() {
@@ -62,6 +66,8 @@ int main() {
 		fprintf(stderr, "pthread_create failed.\n");
 		return EXIT_FAILURE;
 	}
+	
+	usleep(30);
 	
 	/* We wait two frames for the camera to initialize itself. */
 	for(int i = 0; i < 2; i++) {
