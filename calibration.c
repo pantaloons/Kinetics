@@ -45,21 +45,17 @@ void updateModel() {
 	else {
 		cvSetData(colorImg, colorBufs[colorPos], GAME_WIDTH * 3);
 		cvUpdateBGStatModel(colorImg, bgModel, 0);
-		cvCopy(bgMidel->foreground, modelImg);
-		IplConvKernel *circle = cvCreateStructuringElementEx(3, 3, 1, 1, CV_SHAPE_ELLIPSE);        
-		cvMorphologyEx(modelImg, modelImg, 0, circElem, CV_MOP_CLOSE, 3);
-		cvReleaseStructuringElement(&circElem);
+		cvCopy(bgModel->foreground, modelImg, 0);
+		IplConvKernel *circle = cvCreateStructuringElementEx(3, 3, 1, 1, CV_SHAPE_ELLIPSE, NULL);        
+		cvMorphologyEx(modelImg, modelImg, 0, circle, CV_MOP_CLOSE, 3);
+		cvReleaseStructuringElement(&circle);
 	}
 }
 
 void threshhold() {
 	for(int i = 0; i < GAME_HEIGHT; i++) {
 		for(int j = 0; j < GAME_WIDTH; j++) {
-			if(diff->imageData[(i * GAME_WIDTH + j) * 3 + 0] ||
-						diff->imageData[(i * GAME_WIDTH + j) * 3 + 1] ||
-						diff->imageData[(i * GAME_WIDTH + j) * 3 + 1]) {	
-				walls[i][j] = 255;
-			}
+			if(modelImg->imageData[i * GAME_WIDTH + j]) walls[i][j] = 255;
 			else walls[i][j] = 0;
 		}
 	}
