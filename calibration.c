@@ -4,6 +4,9 @@
  * See: http://opencv.willowgarage.com/wiki/VideoSurveillance
  * http://research.microsoft.com/en-us/um/people/chazhang/publications/3dpvt10_ChaZhang.pdf
  */
+ 
+#define TRAIN_FRAMES 256
+#define DISCARD_FRAMES 32
 
 uint8_t walls[GAME_HEIGHT][GAME_WIDTH] = {};
 
@@ -30,11 +33,11 @@ void updateModel() {
 			CvFGDStatModelParams params = {CV_BGFG_FGD_LC, CV_BGFG_FGD_N1C, CV_BGFG_FGD_N2C, CV_BGFG_FGD_LCC,
 					CV_BGFG_FGD_N1CC, CV_BGFG_FGD_N2CC, 1, 1, 2*CV_BGFG_FGD_ALPHA_1, 3*CV_BGFG_FGD_ALPHA_2,
 					2*CV_BGFG_FGD_ALPHA_3, CV_BGFG_FGD_DELTA, CV_BGFG_FGD_T, CV_BGFG_FGD_MINAREA};
-			bgModel = cvCreateGaussianBGModel(colorImg, params);
+			bgModel = cvCreateFGDStatModel(colorImg, &params);
 		}
 		else {
 			cvSetData(colorImg, colorBufs[colorPos], GAME_WIDTH * 3);
-			cvUpdateBGStatModel(colorImg, bgModel);
+			cvUpdateBGStatModel(colorImg, bgModel, 0.05);
 		}
 		training++;
 	}
