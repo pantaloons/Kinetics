@@ -3,6 +3,7 @@
 /**
  * See: http://opencv.willowgarage.com/wiki/VideoSurveillance
  * http://research.microsoft.com/en-us/um/people/chazhang/publications/3dpvt10_ChaZhang.pdf
+ * http://mmlab.disi.unitn.it/wiki/index.php/Mixture_of_Gaussians_using_OpenCV
  */
 
 uint8_t walls[GAME_HEIGHT][GAME_WIDTH] = {};
