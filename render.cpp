@@ -104,31 +104,45 @@ static void renderOne() {
 
 static void renderFour() {
 	pthread_mutex_lock(&physicsMutex);
-	
 	while(!physicsUpdate) {
 		pthread_cond_wait(&physicsSignal, &physicsMutex);
 	}
 	swapPhysicsBuffers();
-	
 	pthread_mutex_unlock(&physicsMutex);
 	
 	glBindTexture(GL_TEXTURE_2D, paintTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, GAME_WIDTH, GAME_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, physicsBuffer[physicsPos]);
 	
-	glTexImage2D(GL_TEXTURE_2D, 0, 3, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, physicsBuffer[physicsPos]);
-	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	glBegin(GL_TRIANGLE_FAN);
+	glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 	glTexCoord2f(0, 0); glVertex3f(0, 0, 0);
 	glTexCoord2f(1, 0); glVertex3f(WINDOW_WIDTH/2, 0, 0);
 	glTexCoord2f(1, 1); glVertex3f(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 0);
 	glTexCoord2f(0, 1); glVertex3f(0, WINDOW_HEIGHT/2, 0);
 	glEnd();
-	/*
-	glTexImage2D(GL_TEXTURE_2D, 0, 1, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, walls);
+
+	//glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, hsvDebug);
+	glBegin(GL_TRIANGLE_FAN);
+	glTexCoord2f(0, 0); glVertex3f(0,WINDOW_HEIGHT/2,0);
+	glTexCoord2f(1, 0); glVertex3f(WINDOW_WIDTH/2,WINDOW_HEIGHT/2,0);
+	glTexCoord2f(1, 1); glVertex3f(WINDOW_WIDTH/2,WINDOW_HEIGHT,0);
+	glTexCoord2f(0, 1); glVertex3f(0,WINDOW_HEIGHT,0);
+	glEnd();
+
+	//glTexImage2D(GL_TEXTURE_2D, 0, 3, 640, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, debugBuffer);
+	glBegin(GL_TRIANGLE_FAN);
+	glTexCoord2f(0, 0); glVertex3f(WINDOW_WIDTH/2,WINDOW_HEIGHT/2,0);
+	glTexCoord2f(1, 0); glVertex3f(WINDOW_WIDTH,WINDOW_HEIGHT/2,0);
+	glTexCoord2f(1, 1); glVertex3f(WINDOW_WIDTH,WINDOW_HEIGHT,0);
+	glTexCoord2f(0, 1); glVertex3f(WINDOW_WIDTH/2,WINDOW_HEIGHT,0);
+	glEnd();
+	
+	//glTexImage2D(GL_TEXTURE_2D, 0, 1, WINDOW_WIDTH, WINDOW_HEIGHT, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, walls);
 	glBegin(GL_TRIANGLE_FAN);
 	glTexCoord2f(0, 0); glVertex3f(WINDOW_WIDTH/2, 0, 0);
 	glTexCoord2f(1, 0); glVertex3f(WINDOW_WIDTH, 0, 0);
 	glTexCoord2f(1, 1); glVertex3f(WINDOW_WIDTH, WINDOW_HEIGHT/2, 0);
-	glTexCoord2f(0, 1); glVertex3f(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 0);*/
+	glTexCoord2f(0, 1); glVertex3f(WINDOW_WIDTH/2, WINDOW_HEIGHT/2, 0);
 	
 	glutSwapBuffers();
 }

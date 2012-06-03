@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -g -Wall -Werror -Wextra -isystem/usr/local/include/libfreenect -DGAME_WIDTH=640 -DGAME_HEIGHT=480 -DWINDOW_WIDTH=640 -DWINDOW_HEIGHT=480 -g
-LDFLAGS = -g -lpthread -lm -lglut -lGLU -lGL -lopencv_core -lopencv_video -lopencv_imgproc -lopencv_highgui -lfreenect -lcvblob -g
+LDFLAGS = -g -lpthread -lm -lglut -lGLU -lGL -lopencv_core -lopencv_video -lopencv_imgproc -lopencv_highgui -lfreenect -g
 
 all: kinetics
 

@@ -93,7 +93,7 @@ void *cameraLoop(void *arg) {
 	freenect_set_depth_callback(device, depthFunc);
 	freenect_set_video_callback(device, colorFunc);
 	freenect_set_video_mode(device, freenect_find_video_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_VIDEO_RGB));
-	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_11BIT));
+	freenect_set_depth_mode(device, freenect_find_depth_mode(FREENECT_RESOLUTION_MEDIUM, FREENECT_DEPTH_REGISTERED));
 	freenect_set_video_buffer(device, &colorBufs[2]);
 	freenect_set_log_level(context, FREENECT_LOG_WARNING);
 

@@ -135,6 +135,11 @@ unsigned long simulate(unsigned long delta) {
 					physicsBuffer[(physicsPos + 1) % 2][i][j][1] = 215;
 					physicsBuffer[(physicsPos + 1) % 2][i][j][2] = 0;
 					break;
+				case WALL:
+					//physicsBuffer[(physicsPos + 1) % 2][i][j][0] = 127;
+					//physicsBuffer[(physicsPos + 1) % 2][i][j][1] = 127;
+					//physicsBuffer[(physicsPos + 1) % 2][i][j][2] = 127;
+					break;
 				default:
 					break;
 			}
