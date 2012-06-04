@@ -11,7 +11,8 @@ pthread_cond_t kinectSignal = PTHREAD_COND_INITIALIZER;
  * when kinect posts a new frame, and front and fetch buffers when user requests
  * a swap. This keeps fresh frames available for the user but will drop unused ones
  * too. ColorPos[0..2] is the position of the front, fetch, and back frames within
- * the color buffers.
+ * the color buffers. Note that colorPos and depthPos are the positions of the front
+ * buffer, and these indicies should be used by other threads to access these buffers.
  */
 uint8_t colorBufs[3][GAME_HEIGHT][GAME_WIDTH][3];
 static int colorPosR[3] = {0, 1, 2};

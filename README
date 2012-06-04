@@ -1,3 +1,39 @@
-Simple particle game using Kinect written for a university project. Based on hell of falling sand game. Doesn't actually use depth as yet although this is intended.
+Simple particle game using Kinect written for a university project. Based on hell of falling sand game. Is actually C code but compiled
+as C++ to interface with OpenCV C++ functions. (Couldn't figure out the ABI.)
+
+Dependencies:
+pthreads
+OpenGL + GLUT
+libfreenect -- Follow instructions at https://github.com/OpenKinect/libfreenect
+OpenCV >= 2.4 -- Follow instructions at http://opencv.willowgarage.com/wiki/ make sure your build includes fix http://code.opencv.org/projects/opencv/repository/revisions/8351
+
+Compiling:
+On Linux:
+$ make
+$ ./kinetics
+Kinetics may need sudo to read/write to raw USB port.
+
+Contols:
+1 -- View large composited output only.
+9 -- View full pipeline debugging information. (Requires #define DEBUG)
+r -- Reset physics engine and sand simulation.
+f -- Reset foreground segmentation algorithm and perform calibration again.
+
+Structure:
+Three main threads, camera, physics, and render. Render must run on application thread
+due to OpenGL crappiness. Camera thread just async waits for new depth or color frames
+from the kinect, and flags a signal so they can be processed by the physics thread.
+The physics thread performs segmentation and simulates the physics, flipping a signal to
+notify the render thread that new composited frames are ready. The render thread just
+uses OpenGL to display latest frames. In this way the three components operate independently
+of each other and can have their framerates or performance tuned individually.
+
+main.cpp -- Program entry point. Spins up camera and physics threads, and also has main
+			flow control pipeline/segmentation loop.
+camera.cpp -- As the name suggests, just interfaces with the kinect and swaps out buffers
+			to be used by the segmentation engine. The buffering system here is semi-tricky.
+calibration.cpp -- Performs foreground segmentation and MOG calibration.
+physics.cpp -- Simulates and composites the sand against segmented foreground.
+render.cpp -- Displays results and detects user input.
 
 No warranties express or implied etc etc, may eat your children.

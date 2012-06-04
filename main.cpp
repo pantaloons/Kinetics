@@ -12,11 +12,6 @@
 #include "physics.hpp"
 #include "calibration.hpp"
 
-#define WINDOW_WIDTH 640
-#define WINDOW_HEIGHT 480
-#define GAME_WIDTH 640
-#define GAME_HEIGHT 480
-
 extern pthread_mutex_t kinectMutex, wallMutex;
 extern pthread_cond_t kinectSignal;
 extern int colorUpdate, depthUpdate;
