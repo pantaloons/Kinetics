@@ -9,7 +9,8 @@
  * http://mmlab.disi.unitn.it/wiki/index.php/Mixture_of_Gaussians_using_OpenCV
  */
  
-#define TRAIN_FRAMES 64
+/* Determined through trial and error, the camera self adjusts around frame 40 */
+#define TRAIN_FRAMES 90
 #define DISCARD_FRAMES 8
 
 uint8_t walls[GAME_HEIGHT][GAME_WIDTH] = {};
@@ -25,6 +26,14 @@ static int training;
 static cv::BackgroundSubtractorMOG2 colorModel, depthModel;
 static cv::Mat colorFG, depthFG;
 static cv::Mat gray;
+
+#ifdef DEBUG
+uint8_t colorFGDebug[GAME_HEIGHT][GAME_WIDTH];
+uint8_t depthFGDebug[GAME_HEIGHT][GAME_WIDTH];
+uint8_t colorFGDebugFilt[GAME_HEIGHT][GAME_WIDTH];
+uint8_t depthFGDebugFilt[GAME_HEIGHT][GAME_WIDTH];
+uint8_t finalBefore[GAME_HEIGHT][GAME_WIDTH];
+#endif
 
 void createModel() {
 	colorFG = cv::Mat(GAME_HEIGHT, GAME_WIDTH, CV_8UC1);
@@ -62,28 +71,45 @@ void resetModel() {
 	reset = true;
 }
 
-void threshhold() {
-	/*cv::Mat color(GAME_HEIGHT, GAME_WIDTH, CV_8UC3, colorBufs[colorPos]);
-	cv::cvtColor(color, gray, CV_RGB2GRAY);
-	cv::blur(gray, gray, cv::Size(3, 3));
-	cv::Canny(gray, gray, 20, 60, 3);*/
+void threshhold() {	
+#ifdef DEBUG
+	for(int i = 0; i < GAME_HEIGHT; i++) {
+		for(int j = 0; j < GAME_WIDTH; j++) {
+			colorFGDebug[i][j] = colorFG.at<uint8_t>(i, j);
+			depthFGDebug[i][j] = depthFG.at<uint8_t>(i, j);
+		}
+	}
+#endif
 	
 	cv::medianBlur(colorFG, colorFG, 5);
 	cv::medianBlur(depthFG, depthFG, 5);
+	
+#ifdef DEBUG
+	for(int i = 0; i < GAME_HEIGHT; i++) {
+		for(int j = 0; j < GAME_WIDTH; j++) {
+			colorFGDebugFilt[i][j] = colorFG.at<uint8_t>(i, j);
+			depthFGDebugFilt[i][j] = depthFG.at<uint8_t>(i, j);
+		}
+	}
+#endif
+	
 	for(int i = 0; i < GAME_HEIGHT; i++) {
 		for(int j = 0; j < GAME_WIDTH; j++) {
 			if(colorFG.at<uint8_t>(i, j) && depthFG.at<uint8_t>(i, j)) walls[i][j] = 255;
 			else walls[i][j] = 0;
 		}
 	}
+	
+#ifdef DEBUG
+	for(int i = 0; i < GAME_HEIGHT; i++) {
+		for(int j = 0; j < GAME_WIDTH; j++) {
+			finalBefore[i][j] = walls[i][j];
+		}
+	}
+#endif
+
 	cv::Mat wallMat(GAME_HEIGHT, GAME_WIDTH, CV_8UC1, walls);
 	cv::medianBlur(wallMat, wallMat, 5);
 	cv::dilate(wallMat, wallMat, cv::Mat(cv::Size(7, 7), CV_8UC1));
 	cv::erode(wallMat, wallMat, cv::Mat(cv::Size(5, 5), CV_8UC1));
-	
-	for(int i = 0; i < GAME_HEIGHT; i++) {
-		for(int j = 0; j < GAME_WIDTH; j++) {
-			//if(gray.at<uint8_t>(i, j)) wallMat.at<uint8_t>(i, j) = 255;
-		}
-	}
 }

@@ -37,20 +37,31 @@ static unsigned long getTime() {
  */
 void *runLoop(void *arg) {
 	(void)arg;
+#ifdef DEBUG
+	unsigned long fpsTime = getTime();
+	unsigned int frames = 0;
+#endif
 	unsigned long lastTime = getTime();
 	while(1) {
 		unsigned long curTime = getTime();
 		unsigned long delta = curTime - lastTime;
 		
-		if(colorUpdate) {
-			swapColorBuffers();
-			updateModel();
-		}
+		int doUpdate = colorUpdate | depthUpdate;
+		if(colorUpdate) swapColorBuffers();
 		if(depthUpdate) swapDepthBuffers();
-
+		if(doUpdate) updateModel();
+		
 		threshhold();
 
 		lastTime = curTime - simulate(delta);
+#ifdef DEBUG
+		frames++;
+		if(curTime - fpsTime >= 1000) {
+			printf("FPS: %u\n", frames);
+			frames = 0;
+			fpsTime = curTime;
+		}
+#endif
 	}
 	return NULL;
 }
